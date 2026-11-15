@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>レッスン予約 掲示</title>
+<link rel="stylesheet" href="core.css">
+<style>
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+#main{flex:1;min-height:0;display:flex;flex-direction:column}
+.bbar{padding:4px 12px;flex-wrap:nowrap}
+.bbar .btitle{font-size:18px;white-space:nowrap}
+.bbar .mleg span{font-size:13px;line-height:20px;padding:0 8px}
+/* 掲示はマウスを使わない（テンキーだけ）。マウスが付いていてもカーソルを出さない */
+body,.mhd,.mev{cursor:none}
+.bbar .bstat{font-size:12px;color:var(--bad);white-space:nowrap}
+.bmsg{margin:40px auto;max-width:640px;font-size:18px}
+.bbar .bhint{font-size:14px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:1px 10px;white-space:nowrap}
+</style>
+</head>
+<body>
+<!--
+  教室のディスプレイに常時出す掲示。見るだけのページで、ボタンやログインはない。
+  今月の全部屋を、1日を9〜15時と15〜21時の2列に折り返して、画面いっぱいに出す。
+  テンキー（またはキーボード）で月を送れる：←↑（4・8）で前の月、→↓（6・2）で次の月、Enter（5・0）で今月。
+  NumLock のオン・オフどちらでも動く。しばらく触らなければ今月に戻る。
+  URL に ?key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は2分ごとに取り直す。
+  ページ自体（このファイル）が更新されたら自分で読み直す（git push で直した画面が、教室に行かなくても反映されるように）。
+  念のため、毎日夜中にも1回ページ全体を読み直す。
+-->
+<main id="main"></main>
+
+<script src="config.js"></script>
+<script src="core.js"></script>
+<script>
+'use strict';
+const CFG = window.MENUET_CONFIG || {};
+const BKEY = new URLSearchParams(location.search).get('key') || '';
+let shownWeeks = 5;
+// 今月からいくつ送っているか（0＝今月）と、最後にキーを押した時刻
+let offset = 0, lastKey = 0;
+const IDLE_MS = 3 * 60 * 1000;   // これだけ触らなければ今月に戻す
+// 読み込んだ月（YYYY-MM-01）、最後に読めた時刻、通信できないときのお知らせ
+let loaded = null, lastOk = null, problem = '';
+const shownMonth = () => { const f0 = pd(today().slice(0, 8) + '01'); return ds(new Date(f0.getFullYear(), f0.getMonth() + offset, 1)); };
+function render() {
+  const main = $('#main');
+  if (!loaded) { main.innerHTML = `<div class="bmsg">${esc(problem || '読み込んでいます…')}</div>`; return; }
+  const f0 = pd(today().slice(0, 8) + '01'), first = loaded, f = pd(first);
+  const last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
+  // 1日を含む週から、月末を含む週まで（前後の月の日は薄く出す）
+  const weeks = [];
+  for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
+  shownWeeks = weeks.length;
+  main.innerHTML = `<div class="mbar bbar"><b class="btitle">${f.getFullYear() !== f0.getFullYear() ? f.getFullYear() + '年' : ''}${f.getMonth() + 1}月のレッスン予定</b>` +
+    (offset ? `<span class="bhint">今月ではありません（Enterで今月に戻る）</span>` : '') +
+    (problem ? `<span class="bstat">${esc(problem)}${lastOk ? `（${lastOk.getHours()}:${pad(lastOk.getMinutes())}の予定を表示中）` : ''}</span>` : '') + `${legend()}</div>` +
+    monthGrid(weeks, d => d < first || d > last, true, '', 'board' + first, true);
+  fit();
+}
+// 表示する月の予定を読む（月曜〜日曜の週でそろえて、前後の月の日も含める）
+async function refresh() {
+  if (!CFG.apiUrl) { problem = '設定（config.js）の apiUrl が空です'; return render(); }
+  if (!BKEY) { problem = 'URL の最後に ?key=掲示の合言葉 を付けて開いてください'; return render(); }
+  const first = shownMonth(), f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
+  const from = mondayOf(first), to = addDays(mondayOf(last), 6);
+  try {
+    const res = await fetch(`${CFG.apiUrl}?key=${encodeURIComponent(BKEY)}&from=${from}&to=${to}`, { cache: 'no-store' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error);
+    setMaster(j);
+    S.events = j.events; reindex();
+    loaded = first; lastOk = new Date(); problem = '';
+  } catch (e) {
+    // 読めなかったときは、前に読めた予定をそのまま出しておく
+    problem = /合言葉/.test(e.message) ? e.message : '予定を読み込めません';
+  }
+  render();
+}
+// 行の高さと文字の大きさを、画面の縦横に合わせて決める（スクロールなしで収める）
+function fit() {
+  const w = $('.mwrap'), wk = w && w.querySelector('.mweek');
+  if (!w || !wk) return;
+  const NS = NSLOT / 2, perWeek = 14 + 3;
+  const rowH = Math.floor((w.clientHeight - shownWeeks * perWeek - 2) / (shownWeeks * NS));
+  const col = wk.querySelector('.mday:not(.sun)'), colW = col ? col.clientWidth / (2 * ROOMS.length) : 20;
+  const mrow = Math.max(7, Math.min(28, rowH));
+  // 名字3文字が列の幅に収まる大きさまで
+  const fs = Math.max(7, Math.min(mrow - 2, Math.floor((colW - 3) / 3), 18));
+  w.style.setProperty('--mrow', mrow + 'px');
+  w.style.setProperty('--mfs', fs + 'px');
+  w.style.setProperty('--mhd', Math.max(14, fs + 4) + 'px');
+  // 目盛りの数字（2桁）が収まる幅にする。幅が変わると列の幅も変わるので、もう一度だけ測り直す
+  const mg = Math.max(14, Math.ceil(Math.max(8, fs - 2) * 1.3 + 4)) + 'px';
+  if (w.style.getPropertyValue('--mg') !== mg) { w.style.setProperty('--mg', mg); fit(); }
+}
+window.addEventListener('resize', fit);
+// 毎分描き直す（日付が変われば今日の枠が動く）。ほかの月を出したまま放っておかれたら今月に戻す。月が変わったら読み直す
+setInterval(() => {
+  if (offset && Date.now() - lastKey > IDLE_MS) offset = 0;
+  if (loaded && loaded !== shownMonth()) refresh(); else render();
+}, 60000);
+// 予定は2分ごとに取り直す
+setInterval(refresh, 2 * 60 * 1000);
+// テンキー：NumLock がオフなら矢印・Enter、オンなら数字が届くので、両方を受ける
+const KEYS_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp', '4', '8', '-'], KEYS_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', '6', '2', '+'], KEYS_HOME = ['Enter', 'Home', '5', '0'];
+document.addEventListener('keydown', ev => {
+  if (KEYS_PREV.includes(ev.key)) offset--;
+  else if (KEYS_NEXT.includes(ev.key)) offset++;
+  else if (KEYS_HOME.includes(ev.key)) offset = 0;
+  else return;
+  ev.preventDefault();
+  offset = Math.max(-12, Math.min(12, offset));
+  lastKey = Date.now();
+  refresh();
+});
+// ページ自体の更新：10分ごとに、このページと共通部分のファイルが変わっていないか確かめ、変わっていたら読み直す
+const SELF = ['board.html', 'core.js', 'core.css', 'config.js'];
+let selfSig = null;
+async function pageSig() {
+  const texts = await Promise.all(SELF.map(f => fetch(f + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '')));
+  return texts.map(t => t.length + ':' + t.slice(-200)).join('|');
+}
+setInterval(async () => {
+  try { const sig = await pageSig(); if (selfSig && sig !== selfSig) location.reload(); selfSig = sig; } catch (e) { }
+}, 10 * 60 * 1000);
+pageSig().then(sig => { selfSig = sig; }).catch(() => { });
+// 念のため、毎日夜中（3時台）に1回ページ全体を読み直す
+const bootDay = today();
+setInterval(() => { if (today() !== bootDay && new Date().getHours() >= 3) location.reload(); }, 5 * 60 * 1000);
+
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>レッスン予約</title>
+<link rel="stylesheet" href="core.css">
+<style>
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{font-weight:400;color:var(--sub);margin-left:4px}
+.brand em{font-style:normal;font-size:11px;background:var(--warnbg);color:var(--warn);border-radius:4px;padding:1px 6px;margin-left:6px}
+.who{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 12px;white-space:nowrap}
+.iconbtn{border:0;background:transparent;font-size:20px;padding:2px 8px;line-height:1}
+main{flex:1;min-height:0;overflow:auto}
+main.fill{display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;border:0;background:transparent;padding:8px 0 10px;font-size:12px;color:var(--sub)}
+.tabs button b{display:block;font-size:17px;line-height:1.2;color:inherit}
+.tabs button.on{color:var(--accent);font-weight:700}
+.bar{display:flex;align-items:center;gap:6px;padding:8px 12px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--line2)}
+.bar .title{font-weight:700;font-size:16px;margin:0 4px}
+.bar .grow,.row>.grow{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.btn.sq{width:34px;padding:5px 0;text-align:center}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.pri:disabled{opacity:.4;cursor:default}
+.btn.danger{color:var(--bad)}
+.btn.small{padding:3px 8px;font-size:12px}
+.bar select,.bar input[type=date]{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--panel)}
+.band{display:flex;gap:6px;padding:6px 12px;overflow-x:auto;background:var(--panel);border-bottom:1px solid var(--line2);flex-shrink:0}
+.band.empty{color:var(--sub);font-size:12px}
+.chip{border:1px solid transparent;border-radius:999px;padding:3px 10px;white-space:nowrap;font-size:12px;background:var(--line2)}
+.chip.t-absent{background:var(--ev-absent);color:var(--ev-absent-f)}
+.chip.t-out{background:var(--ev-out);color:var(--ev-out-f)}
+.chip.hol,.chip.t-closed{background:#fde2e2;color:#c0392b}
+.chip.t-event{background:var(--ev-event);color:var(--ev-event-f)}
+.chip.t-record{background:var(--ev-record);color:var(--ev-record-f)}
+.chip.t-clean{background:var(--ev-clean);color:var(--ev-clean-f)}
+/* grid */
+.gridwrap{flex:1;min-height:0;overflow:auto;background:var(--panel)}
+.grid{display:grid;position:relative;min-width:max-content}
+.gh{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);border-left:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;grid-row:1}
+.gh.corner{left:0;z-index:7;grid-column:1;border-left:0}
+.gh.today{color:var(--accent)}
+.gh.red{color:#c0392b}
+.gh .hn{font-size:10px;font-weight:400;margin-left:4px}
+.gh small{font-weight:400;color:var(--sub);margin-left:3px}
+.gh.click{cursor:pointer}
+.tl{position:sticky;left:0;z-index:4;background:var(--panel);grid-column:1;font-size:11px;color:var(--sub);text-align:right;padding:2px 6px 0 0;border-top:1px solid var(--line)}
+.cell{border-left:1px solid var(--line2);border-top:1px solid var(--line)}
+.cell.half{border-top:1px dashed var(--line2)}
+.cell:hover{background:var(--accentbg)}
+.cell.avail{background:var(--accentbg);box-shadow:inset 0 0 0 1px var(--accent)}
+.cell.full{background:repeating-linear-gradient(135deg,var(--line2) 0 4px,transparent 4px 8px)}
+.cell.free{background:var(--free);box-shadow:inset 0 0 0 1px var(--freeline)}
+.wband{grid-row:2;border-left:1px solid var(--line2);border-bottom:1px solid var(--line);padding:2px;display:flex;flex-direction:column;gap:2px;min-height:6px;background:var(--panel)}
+.wband .chip{font-size:10px;padding:1px 6px;border-radius:6px;white-space:normal;text-align:left}
+.wbar{flex-wrap:nowrap;padding:4px 8px;gap:4px}
+.wbar .title{font-size:14px;margin:0 2px;white-space:nowrap}
+.wbar .btn{padding:3px 8px}
+.wbar .btn.sq{width:28px;padding:3px 0}
+.wbar .opt{padding:3px 10px;white-space:nowrap;flex-shrink:0}
+.vsep{flex-shrink:0;width:1px;align-self:stretch;margin:2px 4px;background:var(--sub);opacity:.5}
+.wchips{display:flex;gap:4px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none}
+/* 全部屋の週表示 */
+.wall{--wrow:16px;--rh:16px;--wcol:30px;--wtime:28px;--wh1:20px;--wh2:15px}
+.wall .gh{font-size:12px}
+.wall .tl{font-size:10px;padding-right:3px}
+.gh2{position:sticky;top:var(--wh1);z-index:5;background:var(--panel);grid-row:2;font-size:10px;color:var(--sub);text-align:center;line-height:var(--wh2);border-bottom:1px solid var(--line);border-left:1px solid var(--line2)}
+.wall .dsep{border-left:2px solid var(--sub)}
+.wall .wband{border-bottom:1px solid var(--line)}
+.wall .gh,.wall .wband,.wev{min-width:0;overflow:hidden}
+.wev{margin:0 1px;padding:0 1px;border-left-width:2px;border-radius:3px;line-height:14px}
+.wev .ev-t,.wev .ev-s{text-overflow:clip}
+.wev .ev-t{font-size:10px}
+.wev .ev-s{font-size:9px}
+.ev{z-index:2;margin:1px 2px;border-radius:6px;padding:2px 5px;overflow:hidden;cursor:pointer;
+  background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:4px solid var(--cf,#888);line-height:1.2;min-width:0}
+.ev-t{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-s{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-s .room{font-weight:700}
+.ev-m{font-size:10px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev.t-record{--c:var(--ev-record);--cf:var(--ev-record-f)}
+.ev.t-clean{--c:var(--ev-clean);--cf:var(--ev-clean-f);background-image:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.05) 8px 16px)}
+.ev.t-event{--c:var(--ev-event);--cf:var(--ev-event-f)}
+.ev.t-out{--c:var(--ev-out);--cf:var(--ev-out-f)}
+.ev.t-absent{--c:var(--ev-absent);--cf:var(--ev-absent-f);background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(0,0,0,.06) 6px 12px)}
+.ev.t-group{border-left-style:double;border-left-width:6px}
+.ev.t-practice{border-left-style:dotted}
+.ev.dim{opacity:.5}
+.ev.mine{box-shadow:0 0 0 2px var(--cf) inset}
+.now{z-index:6;height:2px;background:#e5484d;align-self:start;pointer-events:none;position:relative}
+.now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#e5484d}
+/* lists */
+.wrap{max-width:760px;margin:0 auto;padding:12px}
+.sec{margin:16px 0 6px;font-size:13px;color:var(--sub);font-weight:700}
+.card{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:6px solid var(--cf,var(--line))}
+.ctime{font-weight:700;min-width:84px;font-variant-numeric:tabular-nums}
+.ctime small{display:block;font-weight:400;color:var(--sub)}
+.cbody{flex:1;min-width:0;cursor:pointer}
+.ctitle{font-weight:700;font-size:16px}
+.csub{font-size:12px;color:var(--sub)}
+.cnext{font-size:12px;margin-top:2px}
+.cnext.none{color:var(--bad);font-weight:700}
+.cnext.ok{color:var(--ok)}
+.li{display:flex;gap:10px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;align-items:baseline}
+.li .d{min-width:118px;font-variant-numeric:tabular-nums;font-weight:700}
+.li .x{flex:1;min-width:0}
+.li .x small{color:var(--sub)}
+.li.cancel{opacity:.6}
+.li.cancel .d{text-decoration:line-through}
+.tag{display:inline-block;font-size:11px;border-radius:4px;padding:0 6px;background:var(--line2);color:var(--sub);margin-left:4px;font-weight:400}
+.tag.bad{background:var(--badbg);color:var(--bad)}
+.tag.warn{background:var(--warnbg);color:var(--warn)}
+.tag.ok{background:var(--okbg);color:var(--ok)}
+.empty-note{color:var(--sub);padding:16px;text-align:center;background:var(--panel);border-radius:12px;border:1px dashed var(--line)}
+.search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel);font-size:16px}
+.krow{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
+.krow button{border:1px solid var(--line);background:var(--panel);border-radius:8px;min-width:36px;padding:5px 0}
+.krow button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.slist{display:flex;flex-wrap:wrap;gap:6px}
+.sbtn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:6px 10px;text-align:left}
+.sbtn small{display:block;color:var(--sub);font-size:11px}
+.sbtn .me{color:var(--accent);font-size:10px;font-weight:700}
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet.hidden{display:none}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.sheet-panel{position:relative;background:var(--panel);width:100%;max-width:620px;max-height:92dvh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;box-shadow:0 -6px 30px rgba(0,0,0,.2)}
+@media (min-width:700px){.sheet{align-items:center}.sheet-panel{border-radius:16px;max-height:88dvh}}
+.shead{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line2);gap:8px}
+.shead h2{margin:0;font-size:17px;flex:1}
+.sbody{overflow:auto;padding:4px 16px 12px;flex:1;min-height:0}
+.sfoot{padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line2);display:flex;gap:8px;align-items:center}
+.sfoot .pri{flex:1;padding:11px;font-size:16px}
+.fld{margin-top:12px}
+.fld>label,.fld>.lab{display:block;font-size:12px;color:var(--sub);margin-bottom:4px;font-weight:700}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opt{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px}
+.opt.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.opt.tc{border-left:5px solid var(--cf)}
+.opt.tc.on{background:var(--cf);border-color:var(--cf)}
+.opt.busy{opacity:.45;text-decoration:line-through}
+.inp{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--panel);min-width:0}
+.inp.wide{width:100%}
+.picked{display:flex;align-items:center;gap:8px;background:var(--accentbg);border-radius:10px;padding:8px 10px}
+.picked b{font-size:16px;flex:1}
+.msg{border-radius:10px;padding:8px 10px;margin-top:10px;font-size:13px}
+.msg ul{margin:4px 0 0;padding-left:18px}
+.msg.bad{background:var(--badbg);color:var(--bad)}
+.msg.warn{background:var(--warnbg);color:var(--warn)}
+.msg.ok{background:var(--okbg);color:var(--ok);font-weight:700}
+.msg.info{background:var(--line2);color:var(--sub)}
+.ritem{display:flex;border:1px solid var(--line);border-radius:10px;margin-bottom:4px;background:var(--panel)}
+.ritem.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accentbg)}
+.rmain{flex:1;min-width:0;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;color:var(--ink)}
+.rst{margin-left:6px;color:var(--ok);font-weight:700}
+.ritem.bad .rst{color:var(--bad)}
+.rdel{background:none;border:0;border-left:1px solid var(--line2);padding:0 12px;color:var(--sub)}
+.cal{max-width:340px}
+.ymh{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--sub);margin:10px 0 3px}
+.ymh b{color:var(--ink)}
+.yrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:3px;font-size:13px;background:var(--panel)}
+.yrow .yd{font-weight:700;min-width:72px;font-variant-numeric:tabular-nums}
+.yrow .yd.red{color:#c0392b}
+.yrow .yt{flex:1;min-width:0;color:var(--sub)}
+.yrow .yst{color:var(--ok);font-weight:700}
+.yrow.bad{border-color:var(--bad);background:var(--badbg)}
+.yrow.bad .yst{color:var(--bad)}
+.yrow.skip{opacity:.5}
+.yrow.skip .yd{text-decoration:line-through}
+.yedit{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;margin:0 0 6px;background:var(--accentbg);border-radius:8px;font-size:13px}
+.calh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.calh b{flex:1;text-align:center}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calg span{text-align:center;font-size:11px;color:var(--sub)}
+.calg button{position:relative;height:36px;border:1px solid var(--line);background:var(--panel);border-radius:8px;color:var(--ink);font-variant-numeric:tabular-nums}
+.calg button.past{opacity:.45}
+.calg button.sun,.calg button.hol{color:#c0392b}
+.calg button.cls{background:repeating-linear-gradient(135deg,var(--line2) 0 4px,transparent 4px 8px)}
+.calg button.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.calg button.oth{border:2px dashed var(--accent)}
+.calg button.has::after{content:'';position:absolute;left:50%;bottom:3px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--ok)}
+.calg button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.kv{display:grid;grid-template-columns:84px 1fr;gap:6px 10px;margin-top:12px}
+.kv dt{color:var(--sub);font-size:12px;padding-top:2px}
+.kv dd{margin:0}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.acts .btn{padding:9px 12px}
+#toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:60;background:#222;color:#fff;border-radius:12px;padding:10px 14px;display:none;gap:12px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+#toast.show{display:flex}
+#toast button{background:transparent;border:1px solid #fff8;color:#fff;border-radius:8px;padding:4px 10px;white-space:nowrap}
+/* 月（全部屋） */
+/* 先生ごとの月 */
+.tmweek,.tmhead{min-width:640px}
+/* 月のヘッダ：狭い画面では、全部屋・先生の切り替えを2行目に回す（表は横にスクロールして見る） */
+@media (max-width:760px){
+  .wbar.mon{flex-wrap:wrap;row-gap:4px}
+  .wbar.mon .vsep{display:none}
+  .wbar.mon .wchips{order:9;flex-basis:100%}
+}
+.tmwrap{flex:1;min-height:0;overflow:auto;padding:8px 10px;background:var(--panel)}
+.ptitle{font-size:16px;font-weight:700}
+.psum{font-size:12px;color:var(--sub);margin:2px 0 6px}
+.tmweek{display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) minmax(0,.75fr);border-left:1px solid var(--line)}
+.tmweek>div{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0;padding:2px 3px 4px;min-height:64px}
+.tmhead{border-top:1px solid var(--line)}
+.tmhead>div{min-height:0;text-align:center;font-weight:700;font-size:12px;background:var(--bg);padding:2px}
+.tmday.out{background:var(--bg)}
+.tmday.out .dn{color:var(--sub);opacity:.6}
+.tmday .dn{font-weight:700;font-size:12px;cursor:pointer}
+.tmday.today .dn{color:var(--accent)}
+.tmday.sun .dn,.tmday.red .dn{color:#c0392b}
+.tmday .dn small{font-weight:400;font-size:10px;margin-left:4px}
+.tmi{display:flex;flex-wrap:wrap;column-gap:4px;font-size:11px;line-height:1.3;margin-top:2px;padding:1px 3px;border-radius:3px;cursor:pointer;
+  background:var(--c,var(--line2));color:var(--ink);border-left:3px solid var(--cf,var(--sub))}
+.tmi .tm{font-weight:700;font-variant-numeric:tabular-nums}
+.tmi .nm{font-weight:700}
+.tmi .rm{font-weight:700;color:var(--cf,var(--ink))}
+.tmi .rl{color:var(--sub)}
+.tmi.acc{border-left-style:dashed}
+.tmi.t-absent,.tmi.t-out,.tmi.t-event,.tmi.t-record,.tmi.t-clean{background:var(--line2);border-left-color:var(--sub)}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  :root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--panel:#fff;--bg:#f4f4f4;--ink:#000;--sub:#555;--line:#999;--line2:#e6e6e6;--accent:#1d4ed8}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{height:auto;overflow:visible;background:#fff}
+  body{display:block}
+  .top,.tabs,.wbar,#sheet,#toast{display:none!important}
+  .tmweek,.tmhead{min-width:0}
+  main,main.fill{display:block;overflow:visible}
+  .tmwrap{overflow:visible;padding:0}
+  .tmweek{break-inside:avoid}
+  /* A4横1枚に収まるよう、印刷では文字と余白を詰める */
+  .ptitle{font-size:13px}
+  .psum{font-size:9px;margin:0 0 3px}
+  .tmweek>div{min-height:0;padding:1px 2px 2px}
+  .tmday .dn{font-size:9px}
+  .tmi{font-size:8px;line-height:1.2;margin-top:1px;padding:0 2px;border-left-width:2px}
+  .wrap.stu{max-width:none;padding:0}
+  .wrap.stu>:not(.sprint){display:none!important}
+  .wrap.stu>.sprint{display:block}
+  .wrap.stu[data-p="month"]>.sp-list,.wrap.stu[data-p="list"]>.sp-month{display:none!important}
+  .sprint .ptitle{font-size:16pt}
+  .sprint .psum{font-size:10pt;margin:1mm 0 3mm}
+}
+.sprint{display:none}
+.ptable{width:100%;border-collapse:collapse;font-size:10.5pt}
+.ptable th,.ptable td{border:1px solid #999;padding:1.3mm 2.5mm;text-align:left;font-variant-numeric:tabular-nums}
+.ptable th{background:#eee}
+.ptable small{color:#555;font-size:9pt}
+.pusual{font-size:11pt;margin:0 0 3mm;line-height:1.6}
+.pusual small{color:#555;font-size:9pt}
+.pmon td{vertical-align:top}
+.pmon td.m,.pmon td.n,.pmon th{white-space:nowrap}
+.pmon .pd{display:inline-block;margin-right:3mm}
+.pmon .pd.ex{font-weight:700}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">メヌエット<span>レッスン予約</span></div>
+  <button id="who" class="who" data-act="login"></button>
+  <button class="iconbtn" data-act="menu" aria-label="メニュー">⋯</button>
+</header>
+<main id="main"></main>
+<nav class="tabs">
+  <button data-view="my"><b>●</b>自分</button>
+  <button data-view="student"><b>☺</b>生徒</button>
+  <button data-view="day"><b>▦</b>日</button>
+  <button data-view="week"><b>▥</b>週</button>
+  <button data-view="month"><b>▤</b>月</button>
+</nav>
+<div id="sheet" class="sheet hidden"><div class="sheet-bg" data-e="close"></div><div class="sheet-panel" id="panel"></div></div>
+<div id="toast"></div>
+
+<!-- APIのURLとログインのクライアントID（公開してよい値） -->
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<!-- データ・表示名・月の表の描き方など、掲示用ページ（board.html）と共通の部分 -->
+<script src="core.js"></script>
+<script>
+'use strict';
+/* ===== ログイン ===== */
+// 教室の共通アカウント。表示と編集はできるが、レッスンの担当にはならない
+const CLASSROOM = 'ROOM';
+const isTeacherLogin = () => !!UI.login && UI.login !== CLASSROOM;
+const loginName = () => ME ? ME.name : '';
+const KANA_ROWS = [
+  ['ア', 'アイウエオヴ'], ['カ', 'カキクケコガギグゲゴ'], ['サ', 'サシスセソザジズゼゾ'], ['タ', 'タチツテトダヂヅデド'],
+  ['ナ', 'ナニヌネノ'], ['ハ', 'ハヒフヘホバビブベボパピプペポ'], ['マ', 'マミムメモ'], ['ヤ', 'ヤユヨ'], ['ラ', 'ラリルレロ'], ['ワ', 'ワヲン'],
+];
+
+/* ===== 画面の状態 ===== */
+const UI = { view: 'my', login: null, date: today(), myDate: today(), week: mondayOf(today()), wf: 'ALL', hl: '', sq: '', krow: '', mineOnly: true, sid: null, wfree: false, mf: 'ALL', sMode: 'future', sMonth: today().slice(0, 8) + '01', month: today().slice(0, 8) + '01', mrow: 7, mfold: true };
+const UKEY = 'menuet-yoyaku-ui';
+try { const u = JSON.parse(localStorage.getItem(UKEY) || '{}'); if (u.view) UI.view = u.view; if (u.wf) UI.wf = u.wf; if ([7, 10, 13].includes(u.mrow)) UI.mrow = u.mrow; if (typeof u.mfold === 'boolean') UI.mfold = u.mfold; if (u.mf) UI.mf = u.mf; } catch (e) { }
+function saveUI() { try { localStorage.setItem(UKEY, JSON.stringify({ view: UI.view, wf: UI.wf, mrow: UI.mrow, mfold: UI.mfold, mf: UI.mf })); } catch (e) { } }
+
+/* ===== 表示用の文字 ===== */
+function bandLabel(e) {
+  const who = tOf(e).map(tName).join('・');
+  if (e.type === 'absent') return `${who}先生 不在`;
+  if (e.type === 'out') return `${who}先生 ${e.place || '教室外'}`;
+  return evTitle(e) + (who ? `（${who}）` : '');
+}
+function nextOf(e) {
+  const later = x => x.status !== 'cancel' && x.id !== e.id && (x.date > e.date || (x.date === e.date && x.start > e.start));
+  let best = null;
+  for (const x of S.events) {
+    const same = e.type === 'lesson' ? x.studentId === e.studentId && x.type === 'lesson' : e.type === 'group' ? x.type === 'group' && x.group === e.group : false;
+    if (same && later(x) && (!best || x.date < best.date || (x.date === best.date && x.start < best.start))) best = x;
+  }
+  return best;
+}
+function myStudentIds() {
+  const set = new Set();
+  for (const e of S.events) if (e.studentId && tOf(e).includes(UI.login)) set.add(e.studentId);
+  return set;
+}
+
+/* ===== 描画 ===== */
+function render() {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === UI.view));
+  $('#who').textContent = UI.login ? loginName() + ' ▾' : 'ログイン';
+  // 共通アカウントには「自分」の予定がないので、タブを出さない
+  $('.tabs [data-view="my"]').style.display = UI.login === CLASSROOM ? 'none' : '';
+  const m = $('#main');
+  if (!ready) { m.className = ''; m.innerHTML = `<div class="wrap"><div class="empty-note">${esc(bootMsg)}</div></div>`; return; }
+  // 表示する期間の予定がまだ読み込まれていなければ、読み込んでから描く
+  const vr = viewRange(), retry = msg => `<div class="wrap"><div class="msg bad">${esc(msg)}</div><div class="acts"><button class="btn pri" data-act="retry">もう一度読み込む</button></div></div>`;
+  if (((vr && !covered(vr[0], vr[1])) || (UI.view === 'student' && UI.sid && sLoaded !== UI.sid)) && failedRecently()) { m.className = ''; m.innerHTML = retry(loadErrMsg); return; }
+  if (vr && !covered(vr[0], vr[1])) { ensureRange(vr[0], vr[1]).then(render); m.className = ''; m.innerHTML = `<div class="wrap"><div class="empty-note">読み込んでいます…</div></div>`; return; }
+  if (UI.view === 'student' && UI.sid && sLoaded !== UI.sid) { loadStudent(UI.sid).then(render); m.className = ''; m.innerHTML = `<div class="wrap"><div class="empty-note">読み込んでいます…</div></div>`; return; }
+  m.className = ['day', 'week', 'month'].includes(UI.view) ? 'fill' : '';
+  const keep = m.querySelector('.gridwrap,.mwrap,.tmwrap'), sx = keep ? keep.scrollLeft : 0, sy = keep ? keep.scrollTop : null;
+  m.innerHTML = UI.view === 'day' ? renderDay() : UI.view === 'week' ? renderWeek() : UI.view === 'student' ? renderStudent() : UI.view === 'month' ? renderMonth() : renderMy();
+  const g = m.querySelector('.gridwrap,.mwrap,.tmwrap');
+  if (g) {
+    if (sy !== null && keep.dataset.k === g.dataset.k) { g.scrollLeft = sx; g.scrollTop = sy; }
+    else if (g.classList.contains('mwrap')) { const t = g.querySelector('.mday.today'); g.scrollTop = t ? t.closest('.mweek').offsetTop : 0; }
+    else if (g.classList.contains('gridwrap')) scrollToNow(g);
+  }
+  if (UI.view === 'student') bindStudentSearch();
+  // スマホで先生のボタンが横にはみ出すとき、選んでいる先生のボタンが見えるようにする
+  const on = m.querySelector('.wchips .on');
+  if (on) { const c = on.parentElement; c.scrollLeft = on.offsetLeft - c.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; }
+}
+function scrollToNow(g) {
+  const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+  const cs = getComputedStyle(g), rowh = parseFloat(cs.getPropertyValue('--rh') || cs.getPropertyValue('--rowh')) || 34;
+  const target = Math.max(0, Math.min(NSLOT, (m - DAY_START) / SLOT - 2));
+  g.scrollTop = target * rowh;
+}
+
+function dayGrid(d, hl, key) {
+  const list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
+  const cols = ROOMS.length;
+  let h = `<div class="gridwrap" data-k="${key}"><div class="grid" style="grid-template-columns:var(--timew) repeat(${cols},minmax(var(--colmin),1fr));grid-template-rows:var(--headh) repeat(${NSLOT},var(--rowh))">`;
+  h += `<div class="gh corner"></div>`;
+  ROOMS.forEach((r, i) => h += `<div class="gh" style="grid-column:${i + 2}">${r.name}</div>`);
+  for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + 2}/span 2">${hm(DAY_START + s * SLOT)}</div>`;
+  for (let s = 0; s < NSLOT; s++) {
+    const st = DAY_START + s * SLOT;
+    for (let i = 0; i < cols; i++) {
+      let cls = 'cell' + (s % 2 ? ' half' : '');
+      if (hl && !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [ROOMS[i].id], teachers: [hl] })).length) cls += ' free';
+      h += `<div class="${cls}" data-cell="${d}|${st}|${ROOMS[i].id}" style="grid-column:${i + 2};grid-row:${s + 2}"></div>`;
+    }
+  }
+  for (const e of list) {
+    if (!e.rooms || !e.rooms.length) continue;
+    const idx = e.rooms.map(r => ROOMS.findIndex(x => x.id === r)).filter(i => i >= 0).sort((a, b) => a - b);
+    const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+    if (s1 <= s0 || !idx.length) continue;
+    const row = `grid-row:${(s0 - DAY_START) / SLOT + 2}/span ${(s1 - s0) / SLOT}`;
+    let a = idx[0];
+    for (let k = 1; k <= idx.length; k++) {
+      if (k === idx.length || idx[k] !== idx[k - 1] + 1) { h += evBlock(e, `grid-column:${a + 2}/${idx[k - 1] + 3};${row}`, hl); a = idx[k]; }
+    }
+  }
+  h += nowLine(d, '2/-1');
+  return h + '</div></div>';
+}
+function nowLine(d, col, row0 = 2) {
+  if (d !== today()) return '';
+  const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+  if (m < DAY_START || m >= DAY_END) return '';
+  const s = Math.floor((m - DAY_START) / SLOT), f = ((m - DAY_START) % SLOT) / SLOT;
+  return `<div class="now" style="grid-column:${col};grid-row:${s + row0};top:calc(var(--rh, var(--rowh)) * ${f.toFixed(3)})"></div>`;
+}
+// forTeacher：その先生の週を見るとき。2行目に部屋と、一緒に入る先生（伴奏・メイン）を出す
+function evBlock(e, style, hl, forTeacher) {
+  const cls = ['ev', 't-' + e.type];
+  if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
+  const short = e.len <= 30;
+  let sub = esc(evWho(e));
+  if (forTeacher) {
+    const ts = tOf(e), others = ts.filter(t => t !== forTeacher).map(tName);
+    const role = TYPES[e.type].teachers === 'mainsub' ? (ts[0] === forTeacher ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）') : others.join('・');
+    sub = (e.rooms && e.rooms.length ? `<b class="room">${esc(roomsText(e.rooms))}</b> ` : '') + esc(role);
+  }
+  return `<div class="${cls.join(' ')}" data-ev="${e.id}" style="${style};${teacherStyle(e)}">` +
+    `<div class="ev-t">${esc(evTitle(e))}</div><div class="ev-s">${sub}</div>` +
+    (short ? '' : `<div class="ev-m">${evTime(e)}${e.memo ? ' ' + esc(e.memo) : ''}</div>`) + `</div>`;
+}
+function band(d) {
+  const items = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
+  const hol = holidayName(d);
+  if (!items.length && !hol) return `<div class="band empty">終日の予定・不在や教室外の先生はいません</div>`;
+  return `<div class="band">${hol ? `<span class="chip hol"><b>${esc(hol)}</b></span>` : ''}${items.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}"><b>${esc(bandLabel(e))}</b> ${evTime(e)}</button>`).join('')}</div>`;
+}
+// 週の見出しの日付。祝日なら名前を添える
+const dayHead = d => md(d) + (holidayName(d) ? `<span class="hn">${esc(holidayName(d))}</span>` : '');
+function teacherOptions(sel, emptyLabel) {
+  return `<option value="">${emptyLabel}</option>` + activeTeachers().map(t => `<option value="${t.id}"${t.id === sel ? ' selected' : ''}>${esc(t.full)}先生</option>`).join('');
+}
+
+function renderDay() {
+  const d = UI.date;
+  return `<div class="bar">
+    <button class="btn sq" data-act="day-1">‹</button>
+    <span class="title">${md(d)}</span>
+    <button class="btn sq" data-act="day+1">›</button>
+    <button class="btn" data-act="dayToday">今日</button>
+    <input type="date" data-act="dayPick" value="${d}">
+    <span class="grow"></span>
+    <label>空き：<select data-act="hl">${teacherOptions(UI.hl, '表示しない')}</select></label>
+  </div>${band(d)}${dayGrid(d, UI.hl, 'day' + d)}`;
+}
+
+function renderWeek() {
+  // 週は「全部屋」か「先生ごと」。部屋ごとの表示はなし（前に保存された部屋の指定は全部屋に戻す）
+  if (!(UI.wf === 'ALL' || TMAP.has(UI.wf))) UI.wf = 'ALL';
+  const ws = UI.week, days = [...Array(7).keys()].map(i => addDays(ws, i)), f = UI.wf, isRoom = false;
+  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${f === v ? ' on' : ''}"${st ? ` style="--cf:${st}"` : ''} data-act="wf" data-v="${v}">${esc(l)}</button>`;
+  // ヘッダは1行にまとめる（週の移動・表示の切り替え・空き）
+  let h = `<div class="bar wbar">
+    <button class="btn sq" data-act="week-1">‹</button>
+    <span class="title">${md(ws)}〜</span>
+    <button class="btn sq" data-act="week+1">›</button>
+    <button class="btn" data-act="weekThis">今週</button>
+    <span class="vsep"></span>
+    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, t.fg)).join('')}</div>
+    ${TMAP.has(f) ? `<button class="opt${UI.wfree ? ' on' : ''}" data-act="wfree">空き</button>` : ''}
+  </div>`;
+  if (f === 'ALL') return h + weekAllGrid(ws, days);
+  h += `<div class="gridwrap" data-k="week${ws}${f}" style="--headh:24px"><div class="grid" style="grid-template-columns:var(--timew) repeat(7,minmax(var(--colmin),1fr));grid-template-rows:var(--headh) auto repeat(${NSLOT},var(--rowh))">`;
+  h += `<div class="gh corner"></div><div class="tl" style="grid-row:2;border-top:0"></div>`;
+  days.forEach((d, i) => {
+    h += `<div class="gh click${d === today() ? ' today' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-column:${i + 2}" data-act="gotoDay" data-d="${d}">${dayHead(d)}</div>`;
+    const chips = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && !(e.rooms && e.rooms.length) && !(e.teachers && e.teachers.length));
+    h += `<div class="wband" style="grid-column:${i + 2}">${chips.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}">${esc(evTitle(e))}</button>`).join('')}</div>`;
+  });
+  for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + 3}/span 2">${hm(DAY_START + s * SLOT)}</div>`;
+  days.forEach((d, i) => {
+    for (let s = 0; s < NSLOT; s++) {
+      const st = DAY_START + s * SLOT;
+      // 先生ごとで「空き」を押したとき：先生も部屋も空いている枠を色付けし、先生は空いているのに部屋が埋まっている枠は斜線にする
+      let mark = '';
+      if (UI.wfree && f !== 'ALL' && !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [], teachers: [f] })).length) mark = freeRoom(d, st, f) ? ' avail' : ' full';
+      h += `<div class="cell${s % 2 ? ' half' : ''}${mark}" data-wcell="${d}|${st}" style="grid-column:${i + 2};grid-row:${s + 3}"></div>`;
+    }
+    for (const e of byDate.get(d) || []) {
+      if (e.status === 'cancel') continue;
+      if (isRoom ? !(e.rooms || []).includes(f) : !tOf(e).includes(f)) continue;
+      const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+      if (s1 <= s0) continue;
+      h += evBlock(e, `grid-column:${i + 2};grid-row:${(s0 - DAY_START) / SLOT + 3}/span ${(s1 - s0) / SLOT}`, '', isRoom ? '' : f);
+    }
+    if (d === today()) h += nowLine(d, String(i + 2), 3);
+  });
+  return h + '</div></div>';
+}
+// その時間（30分）に先生 tid が空いていれば、空いている最初の部屋を返す。先生か部屋が空いていなければ null
+function freeRoom(d, st, tid) {
+  if (hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [], teachers: [tid] })).length) return null;
+  const r = ROOMS.find(r => !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [r.id], teachers: [] })).length);
+  return r ? r.id : null;
+}
+// 全部屋の週表示：7日×部屋の列を細く並べ、生徒は名字だけ出す
+const roomShort = r => (r.name.match(/\d+$/) || [r.name.slice(0, 2)])[0];
+function weekAllGrid(ws, days) {
+  const R = ROOMS.length, hl = '', ROW0 = 4;
+  // 列の幅を中身の長さで広げないよう、表の幅を画面幅（狭ければ最小幅）に固定する
+  let h = `<div class="gridwrap wall" data-k="weekall${ws}"><div class="grid" style="width:100%;min-width:calc(var(--wtime) + ${7 * R} * var(--wcol));grid-template-columns:var(--wtime) repeat(${7 * R},minmax(var(--wcol),1fr));grid-template-rows:var(--wh1) var(--wh2) auto repeat(${NSLOT},var(--wrow))">`;
+  h += `<div class="gh corner" style="grid-row:1/3"></div><div class="tl" style="grid-row:3;border-top:0"></div>`;
+  days.forEach((d, i) => {
+    const c0 = 2 + i * R;
+    h += `<div class="gh click dsep${d === today() ? ' today' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-column:${c0}/span ${R}" data-act="gotoDay" data-d="${d}">${dayHead(d)}</div>`;
+    ROOMS.forEach((r, k) => h += `<div class="gh2${k ? '' : ' dsep'}" style="grid-column:${c0 + k}" title="${esc(r.name)}">${esc(roomShort(r))}</div>`);
+    const chips = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
+    h += `<div class="wband dsep" style="grid-column:${c0}/span ${R};grid-row:3">${chips.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}">${esc(bandLabel(e))} ${e.allDay ? '' : hm(e.start) + '–' + hm(e.start + e.len)}</button>`).join('')}</div>`;
+  });
+  for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + ROW0}/span 2">${DAY_START / 60 + s / 2}</div>`;
+  days.forEach((d, i) => {
+    const c0 = 2 + i * R, list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
+    for (let s = 0; s < NSLOT; s++) {
+      const st = DAY_START + s * SLOT;
+      ROOMS.forEach((r, k) => {
+        let cls = 'cell' + (s % 2 ? ' half' : '') + (k ? '' : ' dsep');
+        if (hl && !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [r.id], teachers: [hl] })).length) cls += ' free';
+        h += `<div class="${cls}" data-cell="${d}|${st}|${r.id}" style="grid-column:${c0 + k};grid-row:${s + ROW0}"></div>`;
+      });
+    }
+    for (const e of list) {
+      if (!e.rooms || !e.rooms.length) continue;
+      const idx = e.rooms.map(r => ROOMS.findIndex(x => x.id === r)).filter(x => x >= 0).sort((a, b) => a - b);
+      const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+      if (s1 <= s0 || !idx.length) continue;
+      const row = `grid-row:${(s0 - DAY_START) / SLOT + ROW0}/span ${(s1 - s0) / SLOT}`;
+      const tip = `${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}（${evWho(e)}）`;
+      let a = idx[0];
+      for (let k = 1; k <= idx.length; k++) {
+        if (k === idx.length || idx[k] !== idx[k - 1] + 1) {
+          const cls = ['ev', 'wev', 't-' + e.type];
+          if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
+          h += `<div class="${cls.join(' ')}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${c0 + a}/${c0 + idx[k - 1] + 1};${row};${teacherStyle(e)}">` +
+            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length ? `<div class="ev-s">${esc(tName(tOf(e)[0]))}</div>` : ''}</div>`;
+          a = idx[k];
+        }
+      }
+    }
+    if (d === today()) h += nowLine(d, `${c0}/span ${R}`, ROW0);
+  });
+  return h + '</div></div>';
+}
+
+// 月の全部屋：日ごとの枠に部屋の列と時刻の行を並べ、生徒の名字だけを出す。メインの先生は色で見分ける
+function renderMonth() {
+  const first = UI.month, f = pd(first), y = f.getFullYear(), mo = f.getMonth();
+  const last = ds(new Date(y, mo + 1, 0)), fold = UI.mfold;
+  if (!(UI.mf === 'ALL' || TMAP.has(UI.mf))) UI.mf = 'ALL';
+  const mf = UI.mf;
+  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${mf === v ? ' on' : ''}"${st ? ` style="--cf:${st}"` : ''} data-act="mf" data-v="${v}">${esc(l)}</button>`;
+  // ヘッダは週と同じ1行：月の移動｜全部屋・先生｜表示の設定（全部屋）または印刷（先生ごと）
+  let h = `<div class="bar wbar mon">
+    <button class="btn sq" data-act="mon-1">‹</button><span class="title">${y}年${mo + 1}月</span><button class="btn sq" data-act="mon+1">›</button>
+    <button class="btn" data-act="monThis">今月</button>
+    <span class="vsep"></span>
+    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, t.fg)).join('')}</div>
+    <span class="vsep"></span>`;
+  if (mf === 'ALL') {
+    h += `${[[7, '小'], [10, '中'], [13, '大']].map(([v, l]) => `<button class="opt${UI.mrow === v ? ' on' : ''}" data-act="mSize" data-v="${v}">${l}</button>`).join('')}
+    <button class="opt${fold ? '' : ' on'}" data-act="mFold" data-v="0" title="1日を1列で">1列</button><button class="opt${fold ? ' on' : ''}" data-act="mFold" data-v="1" title="1日を9〜15時と15〜21時の2列で">2列</button></div>`;
+    const weeks = [];
+    for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
+    return h + monthGrid(weeks, d => d < first || d > last, fold, `--mrow:${UI.mrow}px`, 'month' + first + fold);
+  }
+  h += `<button class="btn" data-act="print">印刷</button></div>`;
+  return h + teacherMonth(first, last, mf);
+}
+// 先生ごとの月：カレンダーの日ごとに、その先生の予定を時間順に1行ずつ（時間・生徒・部屋・伴奏）並べる。印刷して配れるようにする
+function teacherMonth(first, last, tid) {
+  const t = TMAP.get(tid), f = pd(first);
+  const mine = d => (byDate.get(d) || []).filter(e => e.status !== 'cancel' && tOf(e).includes(tid)).sort((a, b) => a.start - b.start);
+  // 月のまとめ：メインで持つレッスン、伴奏で入るレッスン、教室外・不在の日数
+  let main = 0, acc = 0, mins = 0;
+  for (let d = first; d <= last; d = addDays(d, 1)) for (const e of mine(d)) {
+    if (e.type !== 'lesson' && e.type !== 'group') continue;
+    if (tOf(e)[0] === tid) main++; else acc++;
+    mins += e.len;
+  }
+  const line = e => {
+    const ts = tOf(e), others = ts.filter(x => x !== tid).map(tName);
+    let role = '';
+    if (TYPES[e.type].teachers === 'mainsub') role = ts[0] === tid ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）';
+    else if (others.length) role = others.join('・');
+    const what = e.type === 'absent' ? '不在' : e.type === 'out' ? (e.place || '教室外') : evTitle(e);
+    return `<div class="tmi t-${e.type}${ts[0] !== tid && TYPES[e.type].teachers === 'mainsub' ? ' acc' : ''}" data-ev="${e.id}" style="${teacherStyle(e)}">` +
+      `<span class="tm">${e.allDay ? '終日' : hm(e.start) + '–' + hm(e.start + e.len)}</span><span class="nm">${esc(what)}</span>` +
+      (e.rooms && e.rooms.length ? `<span class="rm">${esc(roomsText(e.rooms))}</span>` : '') + (role ? `<span class="rl">${esc(role)}</span>` : '') + `</div>`;
+  };
+  let h = `<div class="tmwrap" data-k="tmonth${first}${tid}">
+    <div class="ptitle">${f.getFullYear()}年${f.getMonth() + 1}月　${esc(t.full)}先生のレッスン予定</div>
+    <div class="psum">レッスン ${main}コマ・伴奏 ${acc}コマ（計${mins / 60 | 0}時間${mins % 60 ? mins % 60 + '分' : ''}）　印刷日 ${md(today())}</div>
+    <div class="tmweek tmhead">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<div>${w}</div>`).join('')}</div>`;
+  for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) {
+    h += `<div class="tmweek">`;
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i), out = d < first || d > last;
+      // 薄くした前後の月の日は、予定を出さない（印刷して紛らわしくないように）
+      h += `<div class="tmday${out ? ' out' : ''}${d === today() ? ' today' : ''}${i === 6 ? ' sun' : ''}${!out && isRedDay(d) ? ' red' : ''}"><div class="dn" data-act="gotoDay" data-d="${d}">${pd(d).getDate()}${!out && (holidayName(d) || closedName(d)) ? `<small>${esc(holidayName(d) || closedName(d))}</small>` : ''}</div>${out ? '' : mine(d).map(line).join('')}</div>`;
+    }
+    h += `</div>`;
+  }
+  return h + `</div>`;
+}
+function renderMy() {
+  if (!isTeacherLogin()) return `<div class="wrap"><div class="empty-note">右上の「ログイン」から先生を選んでください</div></div>`;
+  const d = UI.myDate, me = UI.login;
+  const mine = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && tOf(e).includes(me)).sort((a, b) => a.start - b.start);
+  let h = `<div class="bar">
+    <button class="btn sq" data-act="my-1">‹</button>
+    <span class="title">${md(d)}${d === today() ? '（今日）' : ''}</span>
+    <button class="btn sq" data-act="my+1">›</button>
+    <button class="btn" data-act="myToday">今日</button>
+    <span class="grow"></span>
+    <button class="btn pri" data-act="new">＋ 予約を入れる</button>
+  </div><div class="wrap">`;
+  h += `<div class="sec">${esc(tFull(me))}先生のこの日の予定</div>`;
+  if (!mine.length) h += `<div class="empty-note">この日の予定はありません</div>`;
+  for (const e of mine) {
+    const canNext = e.type === 'lesson' || e.type === 'group';
+    let next = '';
+    if (canNext) {
+      const n = nextOf(e);
+      next = n ? `<div class="cnext ok">次回 ${md(n.date)} ${hm(n.start)} ${esc(roomsText(n.rooms))}</div>` : `<div class="cnext none">次回の予約なし</div>`;
+    }
+    const role = TYPES[e.type].teachers === 'mainsub' && tOf(e)[0] !== me ? '<span class="tag warn">伴奏</span>' : '';
+    h += `<div class="card" style="${teacherStyle(e)}">
+      <div class="ctime">${evTime(e)}<small>${esc(roomsText(e.rooms))}</small></div>
+      <div class="cbody" data-ev="${e.id}"><div class="ctitle">${esc(evTitle(e))}${role}</div><div class="csub">${esc(TYPES[e.type].label)}・${esc(evWho(e))}${e.memo ? '・' + esc(e.memo) : ''}</div>${next}</div>
+      ${canNext ? `<button class="btn${next.includes('none') ? ' pri' : ''}" data-act="next" data-id="${e.id}">次回を<br>入れる</button>` : ''}
+    </div>`;
+  }
+  const pend = S.events.filter(e => e.status === 'cancel' && e.makeup === 'pending' && tOf(e).includes(me)).sort((a, b) => a.date < b.date ? -1 : 1);
+  if (pend.length) {
+    h += `<div class="sec">振替が決まっていないレッスン（${pend.length}件）</div>`;
+    for (const e of pend) h += `<div class="li"><span class="d">${md(e.date)} ${hm(e.start)}</span><span class="x" data-ev="${e.id}">${esc(evTitle(e))} <small>${esc(e.cancelReason || '')}</small></span><button class="btn small" data-act="makeup" data-id="${e.id}">振替を入れる</button></div>`;
+  }
+  h += `<div class="sec">この先7日間</div>`;
+  let any = false;
+  for (let i = 1; i <= 7; i++) {
+    const dd = addDays(d, i), list = (byDate.get(dd) || []).filter(e => e.status !== 'cancel' && tOf(e).includes(me)).sort((a, b) => a.start - b.start);
+    if (!list.length) continue;
+    any = true;
+    h += `<div class="sec" style="margin-top:8px;font-weight:400">${md(dd)}</div>`;
+    for (const e of list) h += listItem(e, false);
+  }
+  if (!any) h += `<div class="empty-note">予定はありません</div>`;
+  return h + '</div>';
+}
+// forStudent：生徒のページでは生徒名を繰り返さず、先生を見出しにする
+function listItem(e, withDate, forStudent) {
+  let st = '';
+  if (e.status === 'cancel') st = e.makeup === 'pending' ? '<span class="tag bad">振替待ち</span>' : e.makeup === 'done' ? '<span class="tag ok">振替済み</span>' : '<span class="tag">キャンセル</span>';
+  if (e.makeupOf) st += '<span class="tag ok">振替</span>';
+  return `<button class="li${e.status === 'cancel' ? ' cancel' : ''}" data-ev="${e.id}"><span class="d">${withDate ? md(e.date) + ' ' : ''}${evTime(e)}</span>` +
+    `<span class="x">${esc(forStudent ? evWho(e) : evTitle(e))}${st}<br><small>${esc(roomsText(e.rooms))}${forStudent ? '' : '・' + esc(evWho(e))}${e.memo ? '・' + esc(e.memo) : ''}</small></span></button>`;
+}
+
+/* 生徒を選ぶ部品（生徒の画面と予約の入力で共通） */
+function studentMatches(q, krow, mineOnly) {
+  const mine = myStudentIds(), qk = kata(q), qn = String(q || '').replace(/[\s　]/g, '');
+  const rowChars = krow ? (KANA_ROWS.find(k => k[0] === krow) || ['', ''])[1] : '';
+  let list = STUDENTS.filter(s => {
+    if (!isBookable(s)) return false;
+    if (qn && !(kata(s.kana).includes(qk) || s.name.replace(/[\s　]/g, '').includes(qn))) return false;
+    if (rowChars && !rowChars.includes(kata(s.kana)[0])) return false;
+    if (mineOnly && !qn && !mine.has(s.id)) return false;
+    return true;
+  });
+  list.sort((a, b) => (mine.has(b.id) - mine.has(a.id)) || a.kana.localeCompare(b.kana, 'ja'));
+  return { list: list.slice(0, 40), more: Math.max(0, list.length - 40), mine };
+}
+function studentPicker(q, krow, mineOnly, act) {
+  const { list, more, mine } = studentMatches(q, krow, mineOnly);
+  let h = `<div class="krow">${isTeacherLogin() ? `<button class="${mineOnly ? 'on' : ''}" data-${act}="mine" style="padding:5px 10px">自分の生徒</button>` : ''}` +
+    KANA_ROWS.map(k => `<button class="${krow === k[0] ? 'on' : ''}" data-${act}="k${k[0]}">${k[0]}</button>`).join('') + `</div>`;
+  if (!list.length) return h + `<div class="empty-note">見つかりません${mineOnly ? '（「自分の生徒」を外すと全員から探せます）' : ''}</div>`;
+  h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}">${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
+  if (more) h += `<div class="csub" style="margin-top:6px">ほか${more}人。名前か行で絞ってください</div>`;
+  return h;
+}
+
+// 生徒に渡す「これからの予約」の印刷（A4縦1枚）。お休みにした回は載せない
+const SPRINT_MAX = 28;
+function studentPrint(s, fut, pend) {
+  const list = fut.filter(e => e.status !== 'cancel'), shown = list.slice(0, SPRINT_MAX);
+  let h = `<div class="sprint sp-list"><div class="ptitle">${esc(s.name)} さん　レッスンの予定</div>
+    <div class="psum">${md(today())}からの予約 ${list.length}回${list.length > shown.length ? `（先の${shown.length}回まで載せています）` : ''}${pend ? `・振替待ち ${pend}回` : ''}　印刷日 ${md(today())}</div>
+    <table class="ptable"><thead><tr><th>日にち</th><th>時間</th><th>先生</th><th>部屋</th></tr></thead><tbody>`;
+  for (const e of shown) {
+    const ts = tOf(e);
+    h += `<tr><td>${md(e.date)}</td><td>${evTime(e)}</td><td>${ts[0] ? esc(tFull(ts[0])) + ' 先生' : ''}${ts.length > 1 ? `<small>（伴奏 ${ts.slice(1).map(t => esc(tFull(t))).join('・')}）</small>` : ''}</td><td>${esc(roomsText(e.rooms))}</td></tr>`;
+  }
+  if (!shown.length) h += `<tr><td colspan="4">これからの予約はありません</td></tr>`;
+  return h + `</tbody></table></div>`;
+}
+// 月ごとの印刷：1年分など回数が多いとき用。先生ごとに「いつもの曜日・時間・部屋」を見出しに出し、
+// 月ごとの行に日にちを並べる。いつもと違う回だけ時間や部屋を添える
+function studentPrintMonthly(s, fut, pend) {
+  const list = fut.filter(e => e.status !== 'cancel' && TYPES[e.type].student);
+  const mains = TEACHERS.map(t => t.id).filter(t => list.some(e => tOf(e)[0] === t));
+  const keyOf = e => [dow(e.date), e.start, e.len, e.rooms.join(','), tOf(e).join(',')].join('|');
+  const usual = new Map(mains.map(t => {
+    const c = new Map();
+    for (const e of list) if (tOf(e)[0] === t) c.set(keyOf(e), (c.get(keyOf(e)) || 0) + 1);
+    const [w, st, len, rooms, ts] = [...c].sort((a, b) => b[1] - a[1])[0][0].split('|');
+    return [t, { w: +w, st: +st, len: +len, rooms: rooms ? rooms.split(',') : [], ts: ts.split(',') }];
+  }));
+  const months = [...new Set(list.map(e => e.date.slice(0, 7)))];
+  const ym = k => { const [y, m] = k.split('-').map(Number); return `${y}年${m}月`; };
+  let h = `<div class="sprint sp-month"><div class="ptitle">${esc(s.name)} さん　レッスンの予定${months.length ? `（${ym(months[0])}〜${ym(months[months.length - 1])}）` : ''}</div>
+    <div class="psum">${md(today())}からの予約 ${list.length}回${pend ? `・振替待ち ${pend}回` : ''}　印刷日 ${md(today())}</div>`;
+  if (!list.length) return h + `<div>これからの予約はありません</div></div>`;
+  h += `<div class="pusual">${mains.map(t => { const u = usual.get(t); return `<div><b>${esc(tFull(t))} 先生</b>　毎週${WD[u.w]}曜 ${hm(u.st)}–${hm(u.st + u.len)}　${esc(roomsText(u.rooms))}${u.ts.length > 1 ? `　伴奏 ${u.ts.slice(1).map(x => esc(tFull(x))).join('・')}` : ''}</div>`; }).join('')}<small>いつもと違う回は、日にちのあとに時間や部屋を書いています</small></div>`;
+  h += `<table class="ptable pmon"><thead><tr><th>月</th>${mains.map(t => `<th>${esc(tFull(t))} 先生</th>`).join('')}<th>回数</th></tr></thead><tbody>`;
+  for (const k of months) {
+    const inM = list.filter(e => e.date.startsWith(k));
+    h += `<tr><td class="m">${ym(k)}</td>` + mains.map(t => `<td>${inM.filter(e => tOf(e)[0] === t).map(e => {
+      const u = usual.get(t), d = pd(e.date), diff = [];
+      if (e.start !== u.st || e.len !== u.len) diff.push(`${hm(e.start)}–${hm(e.start + e.len)}`);
+      if (e.rooms.join(',') !== u.rooms.join(',')) diff.push(roomsText(e.rooms));
+      if (tOf(e).join(',') !== u.ts.join(',')) diff.push(tOf(e).length > 1 ? '伴奏 ' + tOf(e).slice(1).map(tName).join('・') : '伴奏なし');
+      return `<span class="pd${dow(e.date) !== u.w || diff.length ? ' ex' : ''}">${d.getDate()}日(${WD[d.getDay()]})${diff.length ? ' ' + esc(diff.join(' ')) : ''}</span>`;
+    }).join('')}</td>`).join('') + `<td class="n">${mains.map(t => inM.filter(e => tOf(e)[0] === t).length).join(' / ')}回</td></tr>`;
+  }
+  return h + `</tbody></table></div>`;
+}
+function renderStudent() {
+  let h = `<div class="wrap">`;
+  if (UI.sid && SMAP.has(UI.sid)) {
+    h = `<div class="wrap stu">`;
+    const s = SMAP.get(UI.sid), d0 = today();
+    const all = S.events.filter(e => e.studentId === s.id).sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1);
+    const pend = all.filter(e => e.status === 'cancel' && e.makeup === 'pending');
+    const mode = UI.sMode, seg = (v, l) => `<button class="opt${mode === v ? ' on' : ''}" data-act="sMode" data-v="${v}">${l}</button>`;
+    h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 生徒の一覧</button><span class="grow"></span><button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button></div>
+      <div class="ctitle" style="font-size:22px">${esc(s.name)}</div><div class="csub">${esc(s.kana)}・${s.id}</div>
+      <div class="row" style="margin-top:10px"><div class="opts">${seg('future', 'これから')}${seg('month', '月ごと')}${seg('past', 'これまで')}</div>` +
+      `<span class="grow"></span>${mode === 'future' ? `<button class="btn" data-act="sPrint" data-v="list" title="日にちごとの表（28回まで）">印刷：一覧</button><button class="btn" data-act="sPrint" data-v="month" title="月ごとに日にちを並べる（1年分など）">印刷：月ごと</button>` : ''}</div>`;
+    // 振替待ちはどの表示でも上に出す（忘れないように）
+    if (pend.length) { h += `<div class="sec">振替待ち（${pend.length}件）</div>`; for (const e of pend) h += listItem(e, true, true); }
+    if (mode === 'month') {
+      const m0 = UI.sMonth, f = pd(m0), m1 = ds(new Date(f.getFullYear(), f.getMonth() + 1, 1));
+      const list = all.filter(e => e.date >= m0 && e.date < m1);
+      const done = list.filter(e => e.status !== 'cancel'), cancel = list.filter(e => e.status === 'cancel');
+      const mins = done.reduce((a, e) => a + e.len, 0);
+      h += `<div class="row" style="margin-top:12px"><button class="btn sq" data-act="sMon-1">‹</button><b style="font-size:16px">${f.getFullYear()}年${f.getMonth() + 1}月</b><button class="btn sq" data-act="sMon+1">›</button><button class="btn" data-act="sMonThis">今月</button></div>`;
+      h += `<div class="msg info">レッスン ${done.length}回（計${mins >= 60 ? (mins / 60 | 0) + '時間' + (mins % 60 ? mins % 60 + '分' : '') : mins + '分'}）${done.filter(e => e.makeupOf).length ? `うち振替 ${done.filter(e => e.makeupOf).length}回` : ''}` +
+        `${cancel.length ? `・お休み ${cancel.length}回（${['振替なし', '振替待ち', '振替済み'].map((l, i) => [l, cancel.filter(e => (e.makeup || 'none') === ['none', 'pending', 'done'][i]).length]).filter(x => x[1]).map(x => x.join(' ')).join('・')}）` : ''}</div>`;
+      h += list.length ? list.map(e => listItem(e, true, true)).join('') : `<div class="empty-note">この月の予定はありません</div>`;
+    } else if (mode === 'past') {
+      const past = all.filter(e => e.date < d0).reverse();
+      h += `<div class="sec">これまで（新しい順・${past.length}件）</div>`;
+      h += past.length ? past.map(e => listItem(e, true, true)).join('') : `<div class="empty-note">記録はありません</div>`;
+    } else {
+      const fut = all.filter(e => e.date >= d0 && !(e.status === 'cancel' && e.makeup === 'pending'));
+      h += `<div class="sec">これからの予約（${fut.filter(e => e.status !== 'cancel').length}件）</div>`;
+      h += fut.length ? fut.map(e => listItem(e, true, true)).join('') : `<div class="empty-note">これからの予約はありません</div>`;
+      h += studentPrint(s, fut, pend.length) + studentPrintMonthly(s, fut, pend.length);
+    }
+    return h + '</div>';
+  }
+  h += `<input class="search" id="sq" type="search" placeholder="名前・ふりがなで探す（例：さとう）" value="${esc(UI.sq)}" autocomplete="off">`;
+  h += `<div id="sres">${studentPicker(UI.sq, UI.krow, UI.mineOnly && isTeacherLogin(), 'sp')}</div>`;
+  return h + '</div>';
+}
+function bindStudentSearch() {
+  const q = $('#sq');
+  if (q) q.addEventListener('input', () => { UI.sq = q.value; $('#sres').innerHTML = studentPicker(UI.sq, UI.krow, UI.mineOnly && isTeacherLogin(), 'sp'); });
+}
+
+/* ===== 予約の入力 ===== */
+let D = null;
+function openEditor(init) {
+  const t = init && init.type || 'lesson';
+  D = {
+    type: t, date: UI.view === 'my' ? UI.myDate : UI.date, start: 600, len: 30, allDay: false, rooms: ['R1'], teachers: isTeacherLogin() ? [UI.login] : [],
+    studentId: null, group: '', title: '', place: '', memo: '', repeat: 'none', count: 8, applySeries: false,
+    sq: '', krow: '', mineOnly: isTeacherLogin(), editing: null, makeupOf: null, seriesId: null,
+    // 入れ方：dates＝日にちを選ぶ / weekly＝曜日で決める（1年分など）
+    mode: 'dates', wks: [1, 2, 3, 4, 5], untilKind: 'fy', until: '', cont: null, ov: {}, yOpen: null, ...init,
+  };
+  normalizeDraft();
+  // 回ごとの日時・部屋・先生（rows）。今選んでいる回（cur）の値は D.date・D.start などに出しておく
+  D.rows = [rowOf(D)]; D.cur = 0; D.calM = monthOf(D.date);
+  renderEditor(true);
+}
+const monthOf = d => d.slice(0, 8) + '01';
+const rowOf = o => ({ date: o.date, start: o.start, len: o.len, rooms: [...o.rooms], teachers: [...o.teachers] });
+// レッスン・グループの新規は、一画面で何回分か（月4回、続けてもう1コマ、など）を入れる
+const useRows = () => !D.editing && !!TYPES[D.type].rows && !useWeekly();
+// レッスン・グループの新規は、曜日・時間を決めて1年分などをまとめて入れることもできる（振替は除く）
+const useWeekly = () => !D.editing && !D.makeupOf && !!TYPES[D.type].rows && D.mode === 'weekly';
+
+/* 曜日で決める：始める日（D.date）の曜日で、終わりの日まで毎週。月の第何週に入れるか（D.wks）で月4回・月2回などにする。
+   回ごとに「なし」にしたり、日・時間・部屋をずらしたりできる（D.ov[元の日]）。教室の休みの日は既定で「なし」 */
+const WK_PRESETS = [['毎週', [1, 2, 3, 4, 5]], ['月4回', [1, 2, 3, 4]], ['月2回', [1, 3]], ['月1回', [1]]];
+function untilOf() {
+  const d = pd(D.date);
+  if (D.untilKind === 'fy') return `${d.getFullYear() + (d.getMonth() >= 3 ? 1 : 0)}-03-31`;
+  if (D.untilKind === '1y') return addDays(ds(new Date(d.getFullYear() + 1, d.getMonth(), d.getDate())), -1);
+  if (D.untilKind === 'half') return addDays(ds(new Date(d.getFullYear(), d.getMonth() + 6, d.getDate())), -1);
+  return D.until && D.until > D.date ? D.until : D.date;
+}
+function weeklyItems() {
+  const base = draftEvent(), until = untilOf(), out = [];
+  for (let b = D.date; b <= until; b = addDays(b, 7)) {
+    if (!D.wks.includes(Math.ceil(pd(b).getDate() / 7))) continue;
+    const o = D.ov[b] || {};
+    const ev = { ...base, date: o.date || b, start: o.start ?? base.start, rooms: o.room ? [o.room] : [...base.rooms] };
+    // 続けてもう1コマ（歌のあとにピアノ、など）。先生と長さは別に決め、部屋は既定で同じ
+    const ev2 = D.cont && D.type === 'lesson' ? { ...base, date: ev.date, start: endOf(ev), len: D.cont.len, teachers: [...D.cont.teachers], rooms: D.cont.room ? [D.cont.room] : [...ev.rooms] } : null;
+    out.push({ b, skip: o.skip ?? !!closedName(ev.date), moved: !!(o.date || o.start != null || o.room), ev, ev2, cs: [] });
+  }
+  return out;
+}
+// 入れようとしている予定どうしも含めて、ぶつかりを調べる
+function planConflicts(evs) {
+  const m = new Map();
+  for (const e of evs) { if (!m.has(e.date)) m.set(e.date, []); m.get(e.date).push(e); }
+  return evs.map(ev => [...conflictsOf(ev), ...conflictsOf(ev, null, m)]);
+}
+function weeklyPlan() {
+  const its = weeklyItems(), act = its.filter(it => !it.skip);
+  const evs = act.flatMap(it => it.ev2 ? [it.ev, it.ev2] : [it.ev]), cs = planConflicts(evs);
+  let k = 0;
+  for (const it of act) { it.cs = cs[k++]; if (it.ev2) it.cs = [...it.cs, ...cs[k++]]; }
+  return { its, items: evs.map((ev, i) => ({ ev, cs: cs[i] })) };
+}
+function weeklySettings() {
+  const T = TYPES[D.type], until = untilOf();
+  const preset = WK_PRESETS.findIndex(p => p[1].join() === D.wks.join());
+  let h = `<div class="fld"><span class="lab">月の回数</span><div class="opts">${WK_PRESETS.map((p, i) => `<button class="opt${i === preset ? ' on' : ''}" data-e="wkp" data-v="${i}">${p[0]}</button>`).join('')}</div>
+    <div class="opts" style="margin-top:6px">${[1, 2, 3, 4, 5].map(n => `<button class="opt${D.wks.includes(n) ? ' on' : ''}" data-e="wk" data-v="${n}">第${n}${WD[dow(D.date)]}</button>`).join('')}</div></div>`;
+  h += `<div class="fld"><span class="lab">終わりの日　<b style="color:var(--ink);font-size:14px">${md(until)}</b></span><div class="row"><div class="opts">${[['fy', '年度末まで'], ['1y', '1年'], ['half', '半年']].map(([k, l]) => `<button class="opt${D.untilKind === k ? ' on' : ''}" data-e="untilK" data-v="${k}">${l}</button>`).join('')}</div>` +
+    `<input class="inp" type="date" data-f="until" value="${until}"></div></div>`;
+  if (T.student) {
+    h += `<div class="fld"><span class="lab">続けてもう1コマ（先生を変えて。歌のあとにピアノ、など）</span><div class="opts"><button class="opt${D.cont ? '' : ' on'}" data-e="contOn" data-v="0">なし</button><button class="opt${D.cont ? ' on' : ''}" data-e="contOn" data-v="1">あり</button></div>`;
+    if (D.cont) {
+      h += `<div class="opts" style="margin-top:6px">${[30, 45, 60].map(l => `<button class="opt${D.cont.len === l ? ' on' : ''}" data-e="cLen" data-v="${l}">${l}分</button>`).join('')}</div>
+        <div class="opts" style="margin-top:6px">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => `<button class="opt tc${D.cont.teachers[0] === t.id ? ' on' : ''}" style="--cf:${t.fg}" data-e="cT" data-v="${t.id}">${esc(t.name)}</button>`).join('')}</div>
+        <div class="opts" style="margin-top:6px"><button class="opt${D.cont.room ? '' : ' on'}" data-e="cRoom" data-v="">同じ部屋</button>${ROOMS.map(r => `<button class="opt${D.cont.room === r.id ? ' on' : ''}" data-e="cRoom" data-v="${r.id}">${esc(r.name)}</button>`).join('')}</div>`;
+    }
+    h += `</div>`;
+  }
+  return h + `<div class="fld"><span class="lab">入れる日（祝日・教室の休みに印。「なし」「ずらす」で直せます）</span>${weeklyList()}</div>`;
+}
+function weeklyList() {
+  const { its } = weeklyPlan(), byMon = new Map();
+  if (!its.length) return `<div class="empty-note">入れる日がありません</div>`;
+  for (const it of its) { const k = it.b.slice(0, 7); if (!byMon.has(k)) byMon.set(k, []); byMon.get(k).push(it); }
+  let h = '';
+  for (const [k, list] of byMon) {
+    const n = list.filter(it => !it.skip).length, [y, m] = k.split('-').map(Number);
+    h += `<div class="ymh">${y}年${m}月　<b>${n}回</b>${n < list.length ? `<span class="tag warn">${list.length - n}回なし</span>` : ''}</div>`;
+    for (const it of list) h += weeklyRow(it);
+  }
+  return h;
+}
+function weeklyRow(it) {
+  const e = it.ev, hol = holidayName(e.date), cl = closedName(e.date), hc = it.skip ? [] : hard(it.cs);
+  let h = `<div class="yrow${it.skip ? ' skip' : ''}${hc.length ? ' bad' : ''}"><span class="yd${isRedDay(e.date) ? ' red' : ''}">${md(e.date)}</span>` +
+    `<span class="yt">${evTime(e)} ${esc(roomsText(e.rooms))}${it.ev2 ? `・続けて ${hm(it.ev2.start)} ${esc(tOf(it.ev2).length ? evWho(it.ev2) : '先生未定')}` : ''}` +
+    `${hol ? `<span class="tag bad">${esc(hol)}</span>` : ''}${cl ? `<span class="tag">${esc(cl)}</span>` : ''}${it.moved ? '<span class="tag ok">ずらした</span>' : ''}</span>` +
+    `<span class="yst">${it.skip ? 'なし' : hc.length ? '✕ ' + esc(conflictWhat(hc)) : '✓'}</span>` +
+    `<button class="btn small" data-e="yOpen" data-v="${D.yOpen === it.b ? '' : it.b}">ずらす</button><button class="btn small" data-e="ySkip" data-v="${it.b}">${it.skip ? '戻す' : 'なし'}</button></div>`;
+  if (D.yOpen === it.b) {
+    h += `<div class="yedit"><span>${md(it.b)} の回を</span><input class="inp" type="date" data-f="ovDate" data-b="${it.b}" value="${e.date}">
+      <select class="inp" data-f="ovStart" data-b="${it.b}">${range(DAY_START, DAY_END - SLOT).map(m => `<option value="${m}"${m === e.start ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>
+      <select class="inp" data-f="ovRoom" data-b="${it.b}">${ROOMS.map(r => `<option value="${r.id}"${r.id === e.rooms[0] ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
+      <button class="btn small" data-e="yReset" data-v="${it.b}">元に戻す</button></div>`;
+  }
+  return h;
+}
+const MAX_ROWS = 8;
+function syncRow() { D.rows[D.cur] = rowOf(D); }
+function loadRow(i) { D.cur = i; Object.assign(D, rowOf(D.rows[i])); D.calM = monthOf(D.date); }
+function selectRow(i) { syncRow(); loadRow(i); }
+function addRow(kind) {
+  syncRow();
+  const c = D.rows[D.cur];
+  // 1週後：同じ時間・部屋・先生で1週あと。続けて：同じ日・同じ部屋で直後の30分（先生は選び直す。歌のあとにピアノ、など）
+  const r = kind === 'week' ? { ...rowOf(c), date: addDays(c.date, 7) } : { ...rowOf(c), start: endOf(c), len: 30, teachers: [] };
+  if (r.start + r.len > DAY_END) return toastMsg('21時を過ぎるため、続けて入れられません');
+  D.rows.push(r); loadRow(D.rows.length - 1);
+}
+function removeRow(i) {
+  syncRow();
+  D.rows.splice(i, 1);
+  loadRow(D.cur > i ? D.cur - 1 : Math.min(D.cur, D.rows.length - 1));
+}
+function normalizeDraft() {
+  const T = TYPES[D.type], all = ROOMS.map(r => r.id);
+  if (T.rooms === 'none') D.rooms = [];
+  else if (T.rooms === 'one') D.rooms = [D.rooms.find(r => all.includes(r)) || 'R1'];
+  else if (T.rooms === 'multi' && !D.rooms.length) D.rooms = all;
+  if (T.teachers === 'none') D.teachers = [];
+  if (T.teachers === 'one') D.teachers = D.teachers.slice(0, 1);
+  if (!T.allDay) D.allDay = false;
+  if (T.onlyAllDay) D.allDay = true;
+  if (!T.repeat) D.repeat = 'none';
+  // 45分はレッスンだけ。ほかの種類では30分単位に切り上げる
+  if (D.type !== 'lesson' && D.len % SLOT) D.len = Math.ceil(D.len / SLOT) * SLOT;
+  if (endOf(D) > DAY_END) D.len = Math.max(SLOT, DAY_END - D.start);
+}
+function draftEvent() {
+  const T = TYPES[D.type];
+  const e = {
+    type: D.type, date: D.date, allDay: !!D.allDay, start: D.allDay ? DAY_START : D.start, len: D.allDay ? DAY_END - DAY_START : D.len,
+    rooms: [...D.rooms], teachers: [...D.teachers], studentId: T.student ? D.studentId : null,
+    group: T.group ? D.group.trim() : '', title: T.title ? D.title.trim() : '', place: T.place ? D.place.trim() : '', memo: D.memo.trim(),
+  };
+  if (D.editing) e.id = D.editing;
+  return e;
+}
+function draftEvents() {
+  const base = draftEvent();
+  if (!useRows()) return [base];
+  syncRow();
+  return D.rows.map(r => ({ ...base, ...rowOf(r) }));
+}
+function draftPlan() {
+  const base = draftEvent();
+  if (!D.editing) {
+    if (useWeekly()) return { items: weeklyPlan().items };
+    if (useRows()) {
+      // 同じ画面で入れるほかの回とも重ならないか確かめる
+      const evs = draftEvents(), cs = planConflicts(evs);
+      return { items: evs.map((ev, i) => ({ ev, cs: cs[i] })) };
+    }
+    const n = D.repeat === 'none' ? 1 : D.count, step = D.repeat === 'biweekly' ? 14 : 7;
+    return { items: [...Array(n).keys()].map(i => { const ev = { ...base, date: addDays(base.date, i * step) }; return { ev, cs: conflictsOf(ev) }; }) };
+  }
+  const ignore = new Set([D.editing]), items = [];
+  let later = [];
+  if (D.applySeries && D.seriesId) {
+    const orig = getEv(D.editing), delta = diffDays(orig.date, base.date);
+    later = S.events.filter(x => x.seriesId === D.seriesId && x.id !== orig.id && x.date > orig.date && x.status !== 'cancel');
+    later.forEach(x => ignore.add(x.id));
+    items.push({ ev: base, cs: conflictsOf(base, ignore) });
+    for (const x of later) {
+      const ev = { ...base, id: x.id, date: addDays(x.date, delta), memo: x.memo };
+      items.push({ ev, cs: conflictsOf(ev, ignore) });
+    }
+    return { items };
+  }
+  return { items: [{ ev: base, cs: conflictsOf(base, ignore) }] };
+}
+// 入れようとしている予定の期間（ぶつかりを確かめるため、この期間の予定が読み込まれている必要がある）
+function draftSpan() {
+  if (useWeekly()) return [D.date, untilOf()];
+  if (useRows()) { syncRow(); const ds_ = D.rows.map(r => r.date).sort(); return [ds_[0], ds_[ds_.length - 1]]; }
+  if (D.editing && D.applySeries) return [D.date, addDays(D.date, 400)];
+  if (!D.editing && D.repeat !== 'none') return [D.date, addDays(D.date, (D.repeat === 'biweekly' ? 14 : 7) * (D.count - 1))];
+  return [D.date, D.date];
+}
+function validate() {
+  const T = TYPES[D.type];
+  const [f, t] = draftSpan();
+  if (!needForDraft(f, t)) return failedRecently() ? '予定を読み込めませんでした。閉じてもう一度開いてください' : '予定を読み込んでいます…';
+  if (T.student && !D.studentId) return '生徒を選んでください';
+  if (T.group && !D.group.trim()) return 'グループ名を入れてください';
+  if (T.rooms === 'one' || T.rooms === 'multi') if (!D.rooms.length) return '部屋を選んでください';
+  if (T.teachers === 'mainsub' && !D.teachers.length) return 'メインの先生を選んでください';
+  if (T.teachers === 'mainsub' && useRows() && draftEvents().some(e => !e.teachers.length)) return '先生を選んでいない回があります';
+  if ((T.teachers === 'one' || D.type === 'out' || D.type === 'practice') && !D.teachers.length) return '先生を選んでください';
+  if (useWeekly()) {
+    const its = weeklyItems().filter(it => !it.skip);
+    if (!its.length) return '入れる日がありません';
+    if (its.some(it => it.ev2 && !it.ev2.teachers.length)) return '続けてのコマの先生を選んでください';
+    if (its.some(it => endOf(it.ev2 || it.ev) > DAY_END)) return '21時を過ぎる回があります';
+  }
+  return '';
+}
+// ぶつかっているのが部屋か先生かだけを短く出す（相手の予定の中身は出さない）
+function conflictWhat(cs) {
+  const rs = [...new Set(cs.filter(c => c.kind === 'room').flatMap(c => c.rs))], ts = [...new Set(cs.filter(c => c.kind === 'teacher').flatMap(c => c.ts))];
+  return [rs.length ? (rs.length === ROOMS.length ? '全部屋' : rs.map(rName).join('・')) : '', ts.length ? ts.map(tName).join('・') + '先生' : ''].filter(Boolean).join('と');
+}
+function updateCheck() {
+  const box = $('#cbox'), btn = $('#saveBtn');
+  if (!box) return;
+  const v = validate();
+  if (useWeekly()) {
+    const act = weeklyPlan().its.filter(it => !it.skip), bad = act.filter(it => hard(it.cs).length);
+    box.innerHTML = v ? `<div class="msg info">${esc(v)}</div>`
+      : bad.length ? `<div class="msg bad"><b>ぶつかる回が${bad.length}回あります。</b>ずらすか「なし」にしてください<div style="margin-top:6px"><button class="btn small" data-e="ySkipBad">ぶつかる回をすべて「なし」にする</button></div></div>`
+      : `<div class="msg ok">✓ ${act.length}回、すべて空いています</div>`;
+    btn.disabled = !!v || bad.length > 0;
+    btn.textContent = `${act.length}回分を入れる`;
+    return;
+  }
+  const p = draftPlan(), rows = useRows();
+  const cur = p.items[rows ? D.cur : 0], hc = hard(cur.cs), warns = cur.cs.filter(c => c.warn);
+  let h = '';
+  if (hc.length) h += `<div class="msg bad"><b>${esc(conflictWhat(hc))}がぶつかっています。</b>${hc.some(c => c.kind === 'teacher') ? '時間か日にち' : '時間か部屋'}を変えてください</div>`;
+  else if (!v) h += `<div class="msg ok">✓ 空いています（${md(cur.ev.date)} ${evTime(cur.ev)}）</div>`;
+  if (v) h += `<div class="msg info">${esc(v)}</div>`;
+  if (warns.length) h += `<div class="msg warn">この生徒は同じ時間に別の予定があります</div>`;
+  if (D.type !== 'closed' && closedName(cur.ev.date)) h += `<div class="msg warn">${md(cur.ev.date)}は教室の休み（${esc(closedName(cur.ev.date))}）です</div>`;
+  let n = p.items.length, blocked = hc.length > 0;
+  if (rows) {
+    const others = p.items.filter((it, i) => i !== D.cur && hard(it.cs).length);
+    if (others.length) h += `<div class="msg bad">ほかにもぶつかっている回があります（${others.map(it => md(it.ev.date)).join('、')}）</div>`;
+    blocked = blocked || others.length > 0;
+  } else if (p.items.length > 1) {
+    const skipped = p.items.slice(1).filter(it => hard(it.cs).length);
+    const label = D.editing ? 'この日以降の定期' : '繰り返し';
+    h += skipped.length
+      ? `<div class="msg warn">${label} ${p.items.length}回のうち${skipped.length}回はぶつかるため${D.editing ? '変更しません' : '入りません'}：${skipped.map(it => md(it.ev.date)).join('、')}</div>`
+      : `<div class="msg info">${label} ${p.items.length}回、すべて空いています</div>`;
+    n -= skipped.length;
+  }
+  box.innerHTML = h;
+  btn.disabled = !!v || blocked;
+  btn.textContent = D.editing ? (p.items.length > 1 ? `${n}件を変更` : '変更を保存') : (p.items.length > 1 ? `${n}回分を入れる` : '入れる');
+}
+const lenLabel = l => l >= 60 ? (l / 60 | 0) + '時間' + (l % 60 ? l % 60 + '分' : '') : l + '分';
+// 日にちを選ぶ小さいカレンダー（1か月）。●はこの生徒の予約がある日、点線はこの画面で入れるほかの回
+function miniCal() {
+  const f = pd(D.calM), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0)), d0 = today();
+  const other = new Set(useRows() ? D.rows.filter((r, i) => i !== D.cur).map(r => r.date) : []);
+  const has = new Set(D.studentId ? S.events.filter(e => e.studentId === D.studentId && e.status !== 'cancel' && e.id !== D.editing).map(e => e.date) : []);
+  let h = `<div class="cal"><div class="calh"><button class="btn sq" data-e="cal-1">‹</button><b>${f.getFullYear()}年${f.getMonth() + 1}月</b><button class="btn sq" data-e="cal+1">›</button></div>
+    <div class="calg">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<span>${w}</span>`).join('')}`;
+  for (let d = mondayOf(D.calM); d <= last; d = addDays(d, 1)) {
+    if (d < D.calM) { h += '<span></span>'; continue; }
+    const hol = holidayName(d), cl = closedName(d);
+    const cls = [d === D.date && 'on', other.has(d) && 'oth', has.has(d) && 'has', d === d0 && 'today', d < d0 && 'past', dow(d) === 0 && 'sun', hol && 'hol', cl && 'cls'].filter(Boolean).join(' ');
+    h += `<button class="${cls}" data-e="pick" data-v="${d}"${hol || cl ? ` title="${esc(hol || cl)}"` : ''}>${pd(d).getDate()}</button>`;
+  }
+  h += `</div>`;
+  h += `<div class="csub" style="margin-top:4px">赤：日曜・祝日　斜線：教室の休み${has.size ? '　●：この生徒の予約がある日' : ''}${other.size ? '　点線：ほかの回' : ''}</div>`;
+  return h + `</div>`;
+}
+function renderEditor(first) {
+  const T = TYPES[D.type], panel = $('#panel');
+  const oldBody = panel.querySelector('.sbody'), sc = !first && oldBody ? oldBody.scrollTop : 0;
+  let h = `<div class="shead"><h2>${D.editing ? '予定を変更' : D.makeupOf ? '振替を入れる' : '予約を入れる'}</h2><button class="iconbtn" data-e="close" aria-label="閉じる">✕</button></div><div class="sbody">`;
+  h += `<div class="fld"><div class="opts">${Object.entries(TYPES).map(([k, t]) => `<button class="opt${D.type === k ? ' on' : ''}" data-e="type" data-v="${k}">${t.label}</button>`).join('')}</div></div>`;
+  if (T.student) {
+    h += `<div class="fld"><span class="lab">生徒</span>`;
+    if (D.studentId) {
+      const n = nextFutureOfStudent(D.studentId);
+      h += `<div class="picked"><b>${esc(sName(D.studentId))}</b><button class="btn small" data-e="clearS">変える</button></div>` +
+        (n ? `<div class="csub" style="margin-top:4px">次の予約：${md(n.date)} ${hm(n.start)} ${esc(roomsText(n.rooms))}（${esc(evWho(n))}）</div>` : `<div class="csub" style="margin-top:4px">これからの予約はまだありません</div>`);
+    } else {
+      h += `<input class="inp wide" data-f="sq" type="search" placeholder="名前・ふりがなで探す" value="${esc(D.sq)}" autocomplete="off"><div id="epick">${studentPicker(D.sq, D.krow, D.mineOnly, 'ep')}</div>`;
+    }
+    h += `</div>`;
+  }
+  if (T.group) h += `<div class="fld"><label>グループ名</label><input class="inp wide" data-f="group" list="groups" value="${esc(D.group)}" placeholder="例：アマービレ"><datalist id="groups">${[...new Set(S.events.filter(e => e.group).map(e => e.group))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>`;
+  if (T.title) h += `<div class="fld"><label>名前</label><input class="inp wide" data-f="title" value="${esc(D.title)}" placeholder="${esc(T.label)}"></div>`;
+  if (T.place) h += `<div class="fld"><label>場所・内容</label><input class="inp wide" data-f="place" value="${esc(D.place)}" placeholder="例：中央公民館"></div>`;
+  const rows = useRows(), weekly = useWeekly();
+  if (!D.editing && !D.makeupOf && T.rows) h += `<div class="fld"><span class="lab">入れ方</span><div class="opts"><button class="opt${weekly ? '' : ' on'}" data-e="mode" data-v="dates">日にちを選ぶ</button><button class="opt${weekly ? ' on' : ''}" data-e="mode" data-v="weekly">曜日で決める（1年分など）</button></div></div>`;
+  if (rows) {
+    const p = draftPlan();
+    h += `<div class="fld"><span class="lab">入れる回（${D.rows.length}回）${D.rows.length > 1 ? '　押すと下で直せます' : ''}</span><div class="rlist">${p.items.map((it, i) => {
+      const e = it.ev, hc = hard(it.cs);
+      return `<div class="ritem${i === D.cur ? ' on' : ''}${hc.length ? ' bad' : ''}"><button class="rmain" data-e="row" data-v="${i}"><b>${md(e.date)} ${evTime(e)}</b> ${esc(roomsText(e.rooms))}・${esc(tOf(e).length ? evWho(e) : '先生未定')}` +
+        `<span class="rst">${hc.length ? '✕ ' + esc(conflictWhat(hc)) : tOf(e).length ? '✓' : ''}</span></button>` +
+        (D.rows.length > 1 ? `<button class="rdel" data-e="rowDel" data-v="${i}" aria-label="この回を消す">✕</button>` : '') + `</div>`;
+    }).join('')}</div>` +
+      (D.rows.length < MAX_ROWS ? `<div class="opts" style="margin-top:6px"><button class="opt" data-e="addRow" data-v="week">＋ 1週後</button><button class="opt" data-e="addRow" data-v="cont">＋ 同じ日に続けて</button></div>` : '') + `</div>`;
+  }
+  h += `<div class="fld"><span class="lab">${weekly ? '始める日' : '日にち'}${rows && D.rows.length > 1 ? `（${D.cur + 1}回目）` : ''}　<b style="color:var(--ink);font-size:14px">${md(D.date)}${weekly ? `から 毎週${WD[dow(D.date)]}曜` : ''}</b></span>${(needForDraft(mondayOf(D.calM), addDays(mondayOf(D.calM), 41)), miniCal())}</div>`;
+  if (T.allDay && !T.onlyAllDay) h += `<div class="fld"><label><input type="checkbox" data-f="allDay"${D.allDay ? ' checked' : ''}> 終日（9:00〜21:00）</label></div>`;
+  if (!D.allDay) {
+    const fits = l => D.start + Math.ceil(l / SLOT) * SLOT <= DAY_END;
+    const starts = range(DAY_START, DAY_END - SLOT).map(m => `<option value="${m}"${m === D.start ? ' selected' : ''}>${hm(m)}</option>`).join('');
+    const lens = [...(D.type === 'lesson' ? [45] : []), ...range(SLOT, DAY_END - DAY_START)].sort((a, b) => a - b).filter(fits);
+    const quick = (D.type === 'lesson' ? [30, 45, 60, 90] : [30, 60, 90, 120]).filter(fits);
+    h += `<div class="fld"><span class="lab">時間</span><div class="row">
+      <button class="btn sq" data-e="t-30">‹</button><select class="inp" data-f="start">${starts}</select><button class="btn sq" data-e="t+30">›</button>
+      <span>〜 ${hm(D.start + D.len)}${D.len % SLOT ? `（枠は${hm(endOf(D))}まで押さえます）` : ''}</span></div>
+      <div class="opts" style="margin-top:6px">${quick.map(l => `<button class="opt${D.len === l ? ' on' : ''}" data-e="len" data-v="${l}">${l}分</button>`).join('')}
+      <select class="inp" data-f="len">${lens.map(l => `<option value="${l}"${l === D.len ? ' selected' : ''}>${lenLabel(l)}</option>`).join('')}</select></div></div>`;
+  }
+  if (T.rooms !== 'none') {
+    const multi = T.rooms !== 'one';
+    h += `<div class="fld"><span class="lab">部屋${multi ? '（複数選べます）' : ''}</span><div class="opts">${ROOMS.map(r => {
+      const busy = !D.rooms.includes(r.id) && roomBusy(r.id);
+      return `<button class="opt${D.rooms.includes(r.id) ? ' on' : ''}${busy ? ' busy' : ''}" data-e="room" data-v="${r.id}">${r.name}</button>`;
+    }).join('')}${multi ? `<button class="opt${D.rooms.length === ROOMS.length ? ' on' : ''}" data-e="allRooms">全部屋</button>` : ''}</div></div>`;
+  }
+  if (T.teachers === 'mainsub') {
+    h += `<div class="fld"><span class="lab">メインの先生</span><div class="opts">${activeTeachers().map(t => teacherOpt(t, D.teachers[0] === t.id, 'main')).join('')}</div></div>`;
+    if (D.teachers[0]) h += `<div class="fld"><span class="lab">伴奏・サブ（なしでも可）</span><div class="opts">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => teacherOpt(t, D.teachers.slice(1).includes(t.id), 'sub')).join('')}</div></div>`;
+  } else if (T.teachers !== 'none') {
+    const lab = T.teachers === 'one' ? '先生' : D.type === 'event' || D.type === 'record' ? '関わる先生（なしでも可）' : '先生（複数選べます）';
+    h += `<div class="fld"><span class="lab">${lab}</span><div class="opts">${activeTeachers().map(t => teacherOpt(t, D.teachers.includes(t.id), 'tch')).join('')}</div></div>`;
+  }
+  if (weekly) h += weeklySettings();
+  if (!D.editing && T.repeat) {
+    h += `<div class="fld"><span class="lab">繰り返し</span><div class="row"><div class="opts">${[['none', 'なし'], ['weekly', '毎週'], ['biweekly', '隔週']].map(([k, l]) => `<button class="opt${D.repeat === k ? ' on' : ''}" data-e="rep" data-v="${k}">${l}</button>`).join('')}</div>` +
+      (D.repeat !== 'none' ? `<select class="inp" data-f="count">${[4, 8, 12, 26, 52].map(n => `<option value="${n}"${n === D.count ? ' selected' : ''}>${n}回${n === 52 ? '（約1年）' : n === 26 ? '（約半年）' : ''}</option>`).join('')}</select>` : '') + `</div></div>`;
+  }
+  if (D.editing && D.seriesId) h += `<div class="fld"><label><input type="checkbox" data-f="applySeries"${D.applySeries ? ' checked' : ''}> この日以降の同じ定期もまとめて変更する</label></div>`;
+  h += `<div id="cbox"></div></div><div class="sfoot">${D.editing ? '<button class="btn danger" data-e="delete">削除</button>' : ''}<button class="btn pri" id="saveBtn" data-e="save">入れる</button></div>`;
+  panel.innerHTML = h;
+  showSheet();
+  panel.querySelector('.sbody').scrollTop = sc;
+  updateCheck();
+}
+function teacherOpt(t, on, e) {
+  const busy = !on && teacherBusy(t.id);
+  return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="--cf:${t.fg}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
+}
+function roomBusy(rid) {
+  const e = draftEvent();
+  return hard(conflictsOf({ ...e, rooms: [rid], teachers: [] }, D.editing ? new Set([D.editing]) : null)).length > 0;
+}
+function teacherBusy(tid) {
+  const e = draftEvent();
+  return hard(conflictsOf({ ...e, rooms: [], teachers: [tid] }, D.editing ? new Set([D.editing]) : null)).length > 0;
+}
+function nextFutureOfStudent(sid) {
+  const d0 = today();
+  return S.events.filter(e => e.studentId === sid && e.status !== 'cancel' && e.date >= d0 && e.id !== D?.editing)
+    .sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1)[0];
+}
+// 予定をAPIに送るときの形（画面だけで使う項目は送らない）
+const wire = e => ({ id: e.id, type: e.type, date: e.date, start: e.start, len: e.len, allDay: !!e.allDay, rooms: e.rooms, teachers: e.teachers,
+  studentId: e.studentId || null, group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+function saveDraft() {
+  if (validate() || D.saving) return;
+  if (useWeekly()) return saveWeekly();
+  const p = draftPlan(), rows = useRows();
+  if (rows ? p.items.some(it => hard(it.cs).length) : hard(p.items[0].cs).length) return;
+  const okItems = p.items.filter(it => !hard(it.cs).length), first = p.items[0].ev;
+  if (!D.editing) {
+    // 定期IDは繰り返しで入れたものだけに付ける（一画面で入れた回どうしはつながない）
+    const series = !rows && okItems.length > 1 ? 'r' : '';
+    return mutate('add', { events: okItems.map(it => ({ ...wire(it.ev), series })), makeupOf: D.makeupOf || null },
+      `${okItems.length > 1 ? okItems.length + '回分を' : ''}入れました：${md(first.date)} ${evTime(first)}`);
+  }
+  mutate('update', { events: okItems.map(it => wire(it.ev)) },
+    `変更しました${p.items.length > okItems.length ? `（${p.items.length - okItems.length}件はぶつかるため変更していません）` : ''}`);
+}
+// 曜日で決めた回をまとめて入れる。メインのコマと「続けて」のコマは、それぞれ別の定期IDでつなぐ
+function saveWeekly() {
+  const its = weeklyPlan().its.filter(it => !it.skip);
+  if (its.some(it => hard(it.cs).length)) return;
+  const events = [];
+  for (const it of its) { events.push({ ...wire(it.ev), series: 'm' }); if (it.ev2) events.push({ ...wire(it.ev2), series: 'c' }); }
+  const f = its[0].ev, l = its[its.length - 1].ev;
+  mutate('add', { events }, `${its.length}回分を入れました（${md(f.date)}〜${md(l.date)}）`);
+}
+function nextFrom(e) {
+  openEditor({ type: e.type, date: addDays(e.date, 7), start: e.start, len: e.len, allDay: e.allDay, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+}
+
+/* ===== 詳細・キャンセル ===== */
+function openDetail(id) {
+  const e = getEv(id);
+  if (!e) return;
+  const T = TYPES[e.type], ts = tOf(e);
+  let who = '';
+  if (T.teachers === 'mainsub') who = (ts[0] ? esc(tFull(ts[0])) + '先生（メイン）' : '未定') + (ts.length > 1 ? '<br>' + ts.slice(1).map(t => esc(tFull(t)) + '先生（伴奏）').join('<br>') : '');
+  else who = ts.map(t => esc(tFull(t)) + '先生').join('・') || '—';
+  let status = '予定どおり';
+  if (e.status === 'cancel') status = `キャンセル（${esc(e.cancelReason || '')}）` + (e.makeup === 'pending' ? ' <span class="tag bad">振替待ち</span>' : e.makeup === 'done' ? ` <span class="tag ok">振替済み</span>` : ' 振替なし');
+  const mk = e.makeupId && getEv(e.makeupId), mo = e.makeupOf && getEv(e.makeupOf);
+  let h = `<div class="shead"><h2>${esc(T.label)}</h2><button class="iconbtn" data-e="close" aria-label="閉じる">✕</button></div><div class="sbody">
+    <div class="ctitle" style="font-size:20px;margin-top:10px">${esc(evTitle(e))}</div>
+    <dl class="kv">
+      <dt>日時</dt><dd>${md(e.date)} ${evTime(e)}</dd>
+      ${T.rooms !== 'none' ? `<dt>部屋</dt><dd>${esc(roomsText(e.rooms))}</dd>` : ''}
+      ${T.teachers !== 'none' ? `<dt>先生</dt><dd>${who}</dd>` : ''}
+      ${e.place ? `<dt>場所</dt><dd>${esc(e.place)}</dd>` : ''}
+      ${e.memo ? `<dt>メモ</dt><dd>${esc(e.memo)}</dd>` : ''}
+      ${e.type === 'lesson' || e.type === 'group' ? `<dt>状態</dt><dd>${status}</dd>` : ''}
+      ${mk ? `<dt>振替先</dt><dd><a href="#" data-e="open" data-v="${mk.id}">${md(mk.date)} ${evTime(mk)}</a></dd>` : ''}
+      ${mo ? `<dt>振替元</dt><dd><a href="#" data-e="open" data-v="${mo.id}">${md(mo.date)} ${evTime(mo)}</a></dd>` : ''}
+      ${e.seriesId ? `<dt>定期</dt><dd>定期の予定（同じ定期 ${S.events.filter(x => x.seriesId === e.seriesId).length}件）</dd>` : ''}
+      <dt>更新</dt><dd class="csub">${esc(e.updatedBy || '')} ${e.updatedAt ? new Date(e.updatedAt).toLocaleString('ja-JP') : ''}</dd>
+    </dl><div class="acts">`;
+  if (e.status !== 'cancel') {
+    h += `<button class="btn pri" data-e="edit" data-v="${e.id}">変更する</button>`;
+    if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn" data-e="nextOf" data-v="${e.id}">次回を入れる</button>`;
+    if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn danger" data-e="cancel" data-v="${e.id}">お休み・キャンセル</button>`;
+    else h += `<button class="btn danger" data-e="del" data-v="${e.id}">削除</button>`;
+  } else {
+    if (e.makeup === 'pending') h += `<button class="btn pri" data-e="mkup" data-v="${e.id}">振替を入れる</button><button class="btn" data-e="noMk" data-v="${e.id}">振替なしにする</button>`;
+    h += `<button class="btn" data-e="uncancel" data-v="${e.id}">キャンセルを取り消す</button>`;
+  }
+  if (e.studentId) h += `<button class="btn" data-e="toStudent" data-v="${e.studentId}">この生徒の予約一覧</button>`;
+  h += `</div></div>`;
+  $('#panel').innerHTML = h;
+  showSheet();
+}
+let CR = '生徒都合';
+function openCancel(id) {
+  const e = getEv(id);
+  CR = '生徒都合';
+  const draw = () => {
+    $('#panel').innerHTML = `<div class="shead"><h2>お休み・キャンセル</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">
+      <div class="ctitle" style="margin-top:10px">${esc(evTitle(e))}　${md(e.date)} ${evTime(e)}</div>
+      <div class="fld"><span class="lab">理由</span><div class="opts">${['生徒都合', '先生都合', '教室都合', 'その他'].map(r => `<button class="opt${CR === r ? ' on' : ''}" data-e="cr" data-v="${r}">${r}</button>`).join('')}</div></div>
+      <div class="msg info">キャンセルしても記録は残ります（月謝の計算に使う想定）。枠は空きます。</div>
+      <div class="acts"><button class="btn pri" data-e="doCancel" data-v="${e.id}|now">キャンセルして振替を入れる</button>
+      <button class="btn" data-e="doCancel" data-v="${e.id}|later">振替はあとで決める</button>
+      <button class="btn" data-e="doCancel" data-v="${e.id}|none">振替なし</button></div></div>`;
+  };
+  draw();
+  openCancel.redraw = draw;
+}
+function doCancel(id, mode) {
+  mutate('cancel', { id, reason: CR, makeup: mode === 'none' ? 'none' : 'pending' }, 'キャンセルしました', mode === 'now' ? () => openMakeup(getEv(id)) : null);
+}
+function openMakeup(e) {
+  openEditor({ type: e.type, date: e.date, start: e.start, len: e.len, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, group: e.group || '', memo: '', makeupOf: e.id });
+}
+
+/* ===== シート・トースト・メニュー ===== */
+function hideSheet() { $('#sheet').classList.add('hidden'); $('#panel').innerHTML = ''; D = null; }
+function closeSheet() { hideSheet(); if (history.state && history.state.sheet) navPop(); }
+function showSheet() {
+  const sh = $('#sheet');
+  if (!sh.classList.contains('hidden')) return;
+  sh.classList.remove('hidden'); navPush({ sheet: 1 });
+}
+
+/* ===== 戻る（ブラウザの戻る・スマホの戻るキー） =====
+   生徒を選んだ画面と、下から出る画面（予約の入力・詳細など）を履歴に積み、戻るで上から1つずつ閉じる。
+   画面のボタンで閉じたときは history.back() で履歴もそろえる。戻りきる前に積むものは、戻ったあとに積む */
+let navBack = false, navQueue = null, sidFrom = null;
+function navPush(st) {
+  if (navBack) navQueue = { ...(navQueue || {}), ...st };
+  else history.pushState({ ...(history.state || {}), ...st }, '');
+}
+function navPop() { if (navBack) return; navBack = true; history.back(); }
+window.addEventListener('popstate', ev => {
+  if (navBack) {
+    navBack = false;
+    if (navQueue) { history.pushState({ ...(history.state || {}), ...navQueue }, ''); navQueue = null; }
+    return;
+  }
+  const st = ev.state || {};
+  if (!st.sheet && !$('#sheet').classList.contains('hidden')) hideSheet();
+  else if (!st.sid && UI.sid) { UI.sid = null; if (sidFrom) { UI.view = sidFrom; saveUI(); } sidFrom = null; render(); }
+});
+let toastTimer = null;
+function toastMsg(text, action) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(text)}</span>` + (action ? `<button id="toastAct">${esc(action[0])}</button>` : '');
+  t.classList.add('show');
+  if (action) $('#toastAct').onclick = () => { t.classList.remove('show'); action[1](); };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), action ? 7000 : 3000);
+}
+// msg：ログインし直してほしい理由など
+function openLogin(msg) {
+  $('#panel').innerHTML = `<div class="shead"><h2>ログイン</h2>${ready ? '<button class="iconbtn" data-e="close">✕</button>' : ''}</div><div class="sbody">
+    ${msg ? `<div class="msg bad">${esc(msg)}</div>` : ''}
+    <p>ふだん使っている Google アカウントでログインしてください。教室に登録されているアカウントだけが使えます。</p>
+    <div id="gbtn" style="margin:16px 0;min-height:44px"></div>
+    <div class="csub">ログインできないときは、教室に連絡してください。</div></div>`;
+  showSheet();
+  gisReady(() => { const b = $('#gbtn'); if (b) google.accounts.id.renderButton(b, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'ja' }); });
+}
+function openMenu() {
+  $('#panel').innerHTML = `<div class="shead"><h2>メニュー</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">
+    <div class="csub">${esc(loginName())}（${esc(token ? token.email : '')}）でログイン中</div>
+    <div class="acts" style="flex-direction:column;align-items:stretch">
+      <button class="btn" data-e="reload">最新の予定を読み直す</button>
+      <button class="btn" data-e="log">変更履歴を見る</button>
+      <button class="btn" data-e="logout">ログアウト</button>
+    </div></div>`;
+  showSheet();
+}
+async function openLog() {
+  $('#panel').innerHTML = `<div class="shead"><h2>変更履歴</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody"><div class="empty-note">読み込んでいます…</div></div>`;
+  try {
+    const j = await api('log');
+    $('#panel .sbody').innerHTML = j.log.map(l => `<div class="li" style="display:block"><b>${esc(l.action)}</b> <small class="csub">${esc(l.at)}・${esc(l.by)}</small><br>${esc(l.text)}</div>`).join('') || '<div class="empty-note">まだありません</div>';
+  } catch (e) { $('#panel .sbody').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+}
+
+/* ===== API・ログイン ===== */
+// ログインは Google の IDトークン（1時間有効）。APIを呼ぶたびに送り、Apps Script 側で本物か・許可された人かを確かめる
+const CFG = window.MENUET_CONFIG || {};
+const TOKEN_KEY = 'menuet-yoyaku-token';
+let ME = null, SV = null, ready = false, bootMsg = 'ログインしてください', token = null, tokenWaiters = [];
+try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); if (t && t.exp * 1000 > Date.now() + 60000) token = t; } catch (e) { }
+let gisInit = false;
+function gisReady(fn) {
+  if (!(window.google && google.accounts && google.accounts.id)) return void setTimeout(() => gisReady(fn), 200);
+  if (!gisInit) {
+    google.accounts.id.initialize({ client_id: CFG.clientId, callback: onCredential, auto_select: true, cancel_on_tap_outside: false, use_fedcm_for_prompt: true });
+    gisInit = true;
+  }
+  fn();
+}
+function onCredential(r) {
+  const p = JSON.parse(atob(r.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+  token = { cred: r.credential, exp: p.exp, email: p.email };
+  try { localStorage.setItem(TOKEN_KEY, JSON.stringify(token)); } catch (e) { }
+  const w = tokenWaiters; tokenWaiters = []; w.forEach(f => f(token.cred));
+  if ($('#gbtn')) closeSheet();
+  if (!ready) start();
+}
+// 有効なトークンを返す。期限が切れていれば Google に取り直してもらい、だめならログインの画面を出す
+function getToken() {
+  if (token && token.exp * 1000 > Date.now() + 60000) return Promise.resolve(token.cred);
+  return new Promise(resolve => {
+    tokenWaiters.push(resolve);
+    if (tokenWaiters.length > 1) return;
+    gisReady(() => google.accounts.id.prompt());
+    setTimeout(() => { if (tokenWaiters.length && !$('#gbtn')) openLogin('ログインの期限が切れました。もう一度ログインしてください'); }, 6000);
+  });
+}
+async function api(action, params) {
+  const cred = await getToken();
+  let res;
+  try {
+    // Content-Type を text/plain にして、ブラウザの事前の問い合わせ（プリフライト）を避ける
+    res = await fetch(CFG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...params, action, token: cred }) });
+  } catch (e) { throw new Error('通信できませんでした。電波の状態を確かめて、もう一度試してください'); }
+  const j = await res.json().catch(() => ({ ok: false, error: 'サーバーの返事を読めませんでした。少し待ってからもう一度試してください' }));
+  if (!j.ok) {
+    const err = new Error(j.error); err.code = j.code; err.conflicts = j.conflicts;
+    if (j.code === 'auth' || j.code === 'forbidden') {
+      token = null; try { localStorage.removeItem(TOKEN_KEY); } catch (e) { }
+      openLogin(j.error);
+    }
+    throw err;
+  }
+  return j;
+}
+// 起動：自分・先生・部屋・生徒を読み、今日の前後の予定を読む
+async function start() {
+  bootMsg = '読み込んでいます…'; render();
+  try {
+    const j = await api('init');
+    ME = j.me; SV = j.version;
+    setMaster(j);
+    UI.login = ME.teacherId || CLASSROOM;
+    if (UI.login === CLASSROOM && UI.view === 'my') UI.view = 'day';
+    await ensureRange(addDays(today(), -42), addDays(today(), 120));
+    ready = true;
+    render();
+  } catch (e) { bootMsg = e.message; render(); }
+}
+
+// 読み込んだ期間（LR＝[from, to]）。足りない分だけ取りに行く。1回に取るのは1年分まで
+let LR = null, loadChain = Promise.resolve(), sLoaded = null;
+// 読み込みに失敗したとき（電波が悪いなど）は、しばらく自動で読み直さない（何度も失敗を繰り返さないように）
+let loadErr = 0, loadErrMsg = '';
+const failedRecently = () => Date.now() - loadErr < 15000;
+const onLoadError = e => { loadErr = Date.now(); loadErrMsg = e.message; toastMsg(e.message); };
+const covered = (f, t) => !!LR && f >= LR[0] && t <= LR[1];
+function chunks(a, b) {
+  const out = [];
+  for (let x = a; x <= b; x = addDays(x, 366)) out.push([x, addDays(x, 365) < b ? addDays(x, 365) : b]);
+  return out;
+}
+function ensureRange(f, t) {
+  loadChain = loadChain.then(async () => {
+    if (covered(f, t)) return;
+    const nf = LR && LR[0] < f ? LR[0] : f, nt = LR && LR[1] > t ? LR[1] : t;
+    const parts = LR ? [[nf, addDays(LR[0], -1)], [addDays(LR[1], 1), nt]].filter(([a, b]) => a <= b) : [[nf, nt]];
+    for (const [a0, b0] of parts) for (const [a, b] of chunks(a0, b0)) { const j = await api('events', { from: a, to: b }); setEvents(j.events, a, b); }
+    LR = [nf, nt];
+  }).catch(onLoadError);
+  return loadChain;
+}
+// 読み込んだ期間をすべて読み直す（ほかの人が予定を変えたとき）
+function reloadAll() {
+  loadChain = loadChain.then(async () => {
+    if (!LR) return;
+    for (const [a, b] of chunks(LR[0], LR[1])) { const j = await api('events', { from: a, to: b }); setEvents(j.events, a, b); SV = j.version; }
+    if (sLoaded) { const j = await api('student', { id: sLoaded }); mergeEvents(j.events); }
+  }).catch(onLoadError);
+  return loadChain.then(() => { if ($('#sheet').classList.contains('hidden')) render(); else if (D) updateCheck(); });
+}
+// 生徒1人の予定をすべて読む（生徒の画面の「これから」「これまで」用）
+function loadStudent(id) {
+  loadChain = loadChain.then(async () => { const j = await api('student', { id }); mergeEvents(j.events); sLoaded = id; }).catch(onLoadError);
+  return loadChain;
+}
+// 今の画面に要る期間
+function viewRange() {
+  if (UI.view === 'day') return [UI.date, UI.date];
+  if (UI.view === 'week') return [UI.week, addDays(UI.week, 6)];
+  if (UI.view === 'my') return [UI.myDate, UI.myDate];
+  if (UI.view === 'month') { const f = pd(UI.month), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0)); return [mondayOf(UI.month), addDays(mondayOf(last), 6)]; }
+  return null;
+}
+// 予約の入力で、要る期間が読み込まれていなければ読み込んで描き直す（読み込み中は false）
+function needForDraft(f, t) {
+  if (covered(f, t)) return true;
+  if (failedRecently()) return false;
+  const open = D;
+  ensureRange(f, t).then(() => { if (D && D === open) renderEditor(); });
+  return false;
+}
+// 予定を書き換える操作をAPIに送り、返ってきた予定を画面に反映する。then：うまくいったあとに続けること
+async function mutate(action, params, okMsg, then) {
+  const box = $('#cbox'), btn = $('#saveBtn');
+  if (D) D.saving = true;
+  if (btn) { btn.disabled = true; btn.textContent = '保存しています…'; }
+  document.querySelectorAll('#panel .acts .btn').forEach(b => b.disabled = true);
+  const before = SV;
+  try {
+    const j = await api(action, params);
+    mergeEvents(j.events, j.removed);
+    // その間にほかの人も変えていたら、読み直す
+    const others = before != null && j.version !== before + 1;
+    SV = j.version;
+    if (then) then(); else closeSheet();
+    render();
+    toastMsg(okMsg);
+    if (others) reloadAll();
+  } catch (e) {
+    if (D) D.saving = false;
+    document.querySelectorAll('#panel .acts .btn').forEach(b => b.disabled = false);
+    if (e.code === 'auth' || e.code === 'forbidden') return;
+    const msg = `<div class="msg bad"><b>${esc(e.message)}</b>${e.conflicts ? `<ul>${e.conflicts.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</div>`;
+    if (box) { box.innerHTML = msg; if (btn) { btn.disabled = false; btn.textContent = 'もう一度入れる'; } }
+    else toastMsg(e.message);
+    if (e.code === 'conflict' || e.code === 'gone') reloadAll();
+  }
+}
+// 数分おきと、画面に戻ったときに、ほかの人が予定を変えていないか確かめる
+async function checkVersion() {
+  if (!ready || document.hidden) return;
+  try { const j = await api('version'); if (j.version !== SV) { SV = j.version; reloadAll(); } } catch (e) { }
+}
+setInterval(checkVersion, 90 * 1000);
+document.addEventListener('visibilitychange', checkVersion);
+
+/* ===== 操作 ===== */
+function setView(v) { UI.view = v; saveUI(); render(); }
+document.addEventListener('click', ev => {
+  const t = ev.target;
+  // シートの中
+  const se = t.closest('[data-e]');
+  if (se && se.closest('#sheet')) { ev.preventDefault(); return sheetAction(se.dataset.e, se.dataset.v, se); }
+  const ep = t.closest('[data-ep]');
+  if (ep && D) return pickerAction(ep.dataset.ep, D, () => { renderEditor(); });
+  const sp = t.closest('[data-sp]');
+  if (sp) return pickerAction(sp.dataset.sp, UI, () => render(), true);
+  const vw = t.closest('[data-view]');
+  if (vw) return setView(vw.dataset.view);
+  const evEl = t.closest('[data-ev]');
+  if (evEl) return openDetail(evEl.dataset.ev);
+  const cell = t.closest('[data-cell]');
+  if (cell) {
+    const [d, st, room] = cell.dataset.cell.split('|');
+    return openEditor({ date: d, start: +st, rooms: [room], teachers: UI.hl ? [UI.hl] : isTeacherLogin() ? [UI.login] : [] });
+  }
+  const wc = t.closest('[data-wcell]');
+  if (wc) {
+    const [d, st] = wc.dataset.wcell.split('|'), f = UI.wf;
+    return openEditor(f.startsWith('R') ? { date: d, start: +st, rooms: [f] } : f === 'ALL' ? { date: d, start: +st } : { date: d, start: +st, teachers: [f], rooms: [freeRoom(d, +st, f) || 'R1'] });
+  }
+  const a = t.closest('[data-act]');
+  if (!a) return;
+  const act = a.dataset.act;
+  if (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type === 'date')) return;
+  switch (act) {
+    case 'login': return ready ? openMenu() : openLogin();
+    case 'retry': loadErr = 0; break;
+    case 'menu': return openMenu();
+    case 'day-1': UI.date = addDays(UI.date, -1); break;
+    case 'day+1': UI.date = addDays(UI.date, 1); break;
+    case 'dayToday': UI.date = today(); break;
+    case 'week-1': UI.week = addDays(UI.week, -7); break;
+    case 'week+1': UI.week = addDays(UI.week, 7); break;
+    case 'weekThis': UI.week = mondayOf(today()); break;
+    case 'gotoDay': UI.date = a.dataset.d; UI.view = 'day'; break;
+    case 'wf': UI.wf = a.dataset.v; saveUI(); break;
+    case 'wfree': UI.wfree = !UI.wfree; break;
+    case 'my-1': UI.myDate = addDays(UI.myDate, -1); break;
+    case 'my+1': UI.myDate = addDays(UI.myDate, 1); break;
+    case 'myToday': UI.myDate = today(); break;
+    case 'new': return openEditor({ date: UI.myDate });
+    case 'next': return nextFrom(getEv(a.dataset.id));
+    case 'makeup': return openMakeup(getEv(a.dataset.id));
+    case 'sback': UI.sid = null; if (history.state && history.state.sid) navPop(); break;
+    case 'sMode': UI.sMode = a.dataset.v; break;
+    case 'sMon-1': case 'sMon+1': { const d = pd(UI.sMonth); d.setMonth(d.getMonth() + (act === 'sMon-1' ? -1 : 1)); UI.sMonth = ds(d); break; }
+    case 'sMonThis': UI.sMonth = today().slice(0, 8) + '01'; break;
+    case 'newFor': return openEditor({ studentId: a.dataset.id, date: today() });
+    case 'bExit': if (document.fullscreenElement) document.exitFullscreen(); return setView('day');
+    case 'mon-1': case 'mon+1': { const d = pd(UI.month); d.setMonth(d.getMonth() + (act === 'mon-1' ? -1 : 1)); UI.month = ds(d); break; }
+    case 'monThis': UI.month = today().slice(0, 8) + '01'; break;
+    case 'mSize': UI.mrow = +a.dataset.v; saveUI(); break;
+    case 'mf': UI.mf = a.dataset.v; saveUI(); break;
+    case 'print': return window.print();
+    case 'sPrint': {
+      // 生徒の予定はA4縦で印刷する（ほかの印刷はA4横）。一覧か月ごとかは data-p で選ぶ
+      $('.wrap.stu').dataset.p = a.dataset.v;
+      const st = document.createElement('style');
+      st.textContent = '@page{size:A4 portrait;margin:12mm}';
+      document.head.appendChild(st);
+      window.addEventListener('afterprint', () => st.remove(), { once: true });
+      return window.print();
+    }
+    case 'mFold': UI.mfold = a.dataset.v === '1'; saveUI(); break;
+    default: return;
+  }
+  render();
+});
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if (t.closest('#sheet') && t.dataset.f && D) {
+    const f = t.dataset.f;
+    if (f === 'start') { D.start = +t.value; normalizeDraft(); }
+    else if (f === 'len' || f === 'count') { D[f] = +t.value; normalizeDraft(); }
+    else if (f === 'allDay' || f === 'applySeries') D[f] = t.checked;
+    else if (f === 'until') { if (t.value) { D.until = t.value; D.untilKind = 'custom'; } }
+    else if (f === 'ovDate' || f === 'ovStart' || f === 'ovRoom') {
+      const b = t.dataset.b, o = { ...D.ov[b] };
+      if (f === 'ovDate') { if (!t.value) return; o.date = t.value === b ? undefined : t.value; }
+      if (f === 'ovStart') o.start = +t.value;
+      if (f === 'ovRoom') o.room = t.value;
+      D.ov[b] = o;
+    }
+    else return;
+    return renderEditor();
+  }
+  const act = t.dataset.act;
+  if (act === 'dayPick' && t.value) { UI.date = t.value; render(); }
+  if (act === 'hl') { UI.hl = t.value; render(); }
+});
+document.addEventListener('input', ev => {
+  const t = ev.target;
+  if (!t.closest('#sheet') || !t.dataset.f || !D) return;
+  const f = t.dataset.f;
+  if (f === 'sq') { D.sq = t.value; $('#epick').innerHTML = studentPicker(D.sq, D.krow, D.mineOnly, 'ep'); return; }
+  if (['title', 'group', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
+});
+function pickerAction(v, st, redraw, isView) {
+  if (v === 'mine') { st.mineOnly = !st.mineOnly; }
+  else if (v[0] === 'k') { const k = v.slice(1); st.krow = st.krow === k ? '' : k; }
+  else if (v[0] === 's') {
+    const id = v.slice(1);
+    if (isView) { UI.sid = id; sidFrom = null; navPush({ sid: id }); return render(); }
+    D.studentId = id; D.sq = '';
+    if (!D.editing && !D.makeupOf) suggestFromHistory(id);
+  }
+  redraw();
+}
+// 生徒を選んだとき、その生徒のいつもの先生・伴奏を入れておく（長さは30分のまま）
+function suggestFromHistory(id) {
+  const hist = S.events.filter(e => e.studentId === id && e.type === 'lesson' && (!isTeacherLogin() || tOf(e)[0] === UI.login)).sort((a, b) => a.date < b.date ? 1 : -1)[0];
+  if (hist) { D.teachers = [...hist.teachers]; normalizeDraft(); }
+}
+function sheetAction(e, v, el) {
+  switch (e) {
+    case 'close': return closeSheet();
+    case 'log': return openLog();
+    case 'reload': closeSheet(); return reloadAll().then(() => toastMsg('最新の予定を読み直しました'));
+    case 'logout':
+      token = null; try { localStorage.removeItem(TOKEN_KEY); } catch (e) { }
+      if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+      return location.reload();
+    case 'open': return openDetail(v);
+    case 'edit': { const x = getEv(v); return openEditor({ ...JSON.parse(JSON.stringify(x)), editing: x.id, repeat: 'none', sq: '', krow: '', mineOnly: isTeacherLogin() }); }
+    case 'nextOf': return nextFrom(getEv(v));
+    case 'cancel': return openCancel(v);
+    case 'cr': CR = v; return openCancel.redraw();
+    case 'doCancel': { const [id, mode] = v.split('|'); return doCancel(id, mode); }
+    case 'mkup': return openMakeup(getEv(v));
+    case 'noMk': return mutate('noMakeup', { id: v }, '振替なしにしました');
+    case 'uncancel': {
+      const x = getEv(v), cs = hard(conflictsOf({ ...x, status: 'active' }));
+      if (cs.length) return alert('この時間には別の予定が入っているため、取り消せません。');
+      return mutate('uncancel', { id: v }, 'キャンセルを取り消しました');
+    }
+    case 'del': case 'delete': {
+      const id = v || D.editing, x = getEv(id);
+      if (!confirm(`「${evTitle(x)}」${md(x.date)} を削除しますか？\n（レッスンのお休みは「お休み・キャンセル」を使うと記録が残ります）`)) return;
+      return mutate('delete', { id }, '削除しました');
+    }
+    case 'toStudent': {
+      // すでにその生徒の画面にいるなら、履歴は積まない（戻る1回で一覧に戻れるように）
+      const same = UI.view === 'student' && UI.sid === v;
+      // 日・週などの詳細から来たときは、戻るでその画面に帰る
+      sidFrom = UI.view === 'student' ? null : UI.view;
+      UI.sid = v; UI.view = 'student'; saveUI(); closeSheet(); if (!same) navPush({ sid: v }); return render();
+    }
+  }
+  if (!D) return;
+  switch (e) {
+    case 'type':
+      D.type = v;
+      if (TYPES[v].rooms === 'multi') D.rooms = ROOMS.map(r => r.id);
+      if (TYPES[v].teachers === 'mainsub' && !D.teachers.length && isTeacherLogin()) D.teachers = [UI.login];
+      normalizeDraft(); break;
+    case 'clearS': D.studentId = null; break;
+    case 't-30': case 't+30': { const s = D.start + +e.slice(1); if (s >= DAY_START && s + SLOT <= DAY_END) { D.start = s; normalizeDraft(); } break; }
+    case 'len': D.len = +v; normalizeDraft(); break;
+    case 'room':
+      if (TYPES[D.type].rooms === 'one') D.rooms = [v];
+      else D.rooms = D.rooms.includes(v) ? D.rooms.filter(r => r !== v) : [...D.rooms, v].sort();
+      break;
+    case 'allRooms': D.rooms = D.rooms.length === ROOMS.length ? [] : ROOMS.map(r => r.id); break;
+    case 'main': D.teachers = [v, ...D.teachers.slice(1).filter(t => t !== v)]; break;
+    case 'sub': { const subs = D.teachers.slice(1); D.teachers = [D.teachers[0], ...(subs.includes(v) ? subs.filter(t => t !== v) : [...subs, v])]; break; }
+    case 'tch':
+      if (TYPES[D.type].teachers === 'one') D.teachers = [v];
+      else D.teachers = D.teachers.includes(v) ? D.teachers.filter(t => t !== v) : [...D.teachers, v];
+      break;
+    case 'rep': D.repeat = v; break;
+    case 'row': selectRow(+v); break;
+    case 'rowDel': removeRow(+v); break;
+    case 'addRow': addRow(v); break;
+    case 'pick': D.date = v; break;
+    case 'mode': D.mode = v; break;
+    case 'wkp': D.wks = [...WK_PRESETS[+v][1]]; break;
+    case 'wk': { const n = +v; if (D.wks.includes(n)) { if (D.wks.length > 1) D.wks = D.wks.filter(x => x !== n); } else D.wks = [...D.wks, n].sort(); break; }
+    case 'untilK': D.untilKind = v; break;
+    case 'contOn': D.cont = v === '1' ? { len: 30, teachers: [], room: '' } : null; break;
+    case 'cLen': D.cont.len = +v; break;
+    case 'cT': D.cont.teachers = [v]; break;
+    case 'cRoom': D.cont.room = v; break;
+    case 'yOpen': D.yOpen = v || null; break;
+    case 'ySkip': { const it = weeklyItems().find(x => x.b === v); D.ov[v] = { ...D.ov[v], skip: !it.skip }; break; }
+    case 'yReset': { const o = D.ov[v]; if (o && o.skip != null) D.ov[v] = { skip: o.skip }; else delete D.ov[v]; D.yOpen = null; break; }
+    case 'ySkipBad': for (const it of weeklyPlan().its) if (!it.skip && hard(it.cs).length) D.ov[it.b] = { ...D.ov[it.b], skip: true }; break;
+    case 'cal-1': case 'cal+1': { const d = pd(D.calM); d.setMonth(d.getMonth() + (e === 'cal-1' ? -1 : 1)); D.calM = ds(d); break; }
+    case 'save': return saveDraft();
+    default: return;
+  }
+  renderEditor();
+}
+
+history.replaceState({}, '');
+if (!CFG.apiUrl || !CFG.clientId) { bootMsg = '設定（config.js）の apiUrl と clientId が空です'; render(); }
+else if (token) start();
+else { render(); openLogin(); }
+</script>
+</body>
+</html>

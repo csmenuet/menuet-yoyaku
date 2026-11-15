@@ -1,0 +1,56 @@
+/* レッスン予定デモの共通の見た目（操作用 lesson-schedule.html と掲示用 board.html で使う） */
+:root{
+  --bg:#f5f4f0; --panel:#fff; --ink:#1f2328; --sub:#6b7078; --line:#dedcd6; --line2:#eeece7;
+  --accent:#2f6fde; --accentbg:#e6eefc; --bad:#c62f2f; --badbg:#fdeaea; --warn:#8a5a00; --warnbg:#fff3d1;
+  --ok:#1f7a3a; --okbg:#e3f5e8; --free:#c9f0d3; --freeline:#2f9e55;
+  --rowh:34px; --headh:30px; --timew:44px; --colmin:78px; --fs:14px;
+  --ev-record:#ffd9d9; --ev-record-f:#a11d1d; --ev-clean:#e6e6e6; --ev-clean-f:#4a4a4a;
+  --ev-event:#eadcff; --ev-event-f:#5b2aa8; --ev-out:#ffe7c7; --ev-out-f:#8a4b00; --ev-absent:#e9ebee; --ev-absent-f:#4b5563;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16181b; --panel:#1f2226; --ink:#e8e8e6; --sub:#9aa0a8; --line:#363a40; --line2:#2a2d32;
+    --accent:#7aa7ff; --accentbg:#22314d; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
+    --ok:#7ad69a; --okbg:#1f3527; --free:#1f4d2e; --freeline:#56c27c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16181b; --panel:#1f2226; --ink:#e8e8e6; --sub:#9aa0a8; --line:#363a40; --line2:#2a2d32;
+  --accent:#7aa7ff; --accentbg:#22314d; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
+  --ok:#7ad69a; --okbg:#1f3527; --free:#1f4d2e; --freeline:#56c27c;
+}
+*{box-sizing:border-box}
+/* 月の全部屋（操作用の「月」と掲示で共通） */
+.mbar{display:flex;align-items:center;gap:6px;padding:3px 8px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px;flex-wrap:wrap}
+.mbar .btn{padding:1px 8px;font-size:12px;border-radius:6px}
+.mbar .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.mbar b{font-size:13px;margin:0 2px}
+.mleg{display:flex;gap:3px;flex-wrap:wrap;flex:1;justify-content:flex-end}
+.mleg span{border-radius:3px;padding:0 5px;font-size:10px;line-height:15px;background:var(--c);color:var(--cf);border-left:3px solid var(--cf)}
+.mwrap{flex:1;min-height:0;overflow:auto;position:relative;background:var(--bg)}
+.mweek{display:grid;border-bottom:3px solid var(--sub)}
+.mgut{display:grid;background:var(--panel);font-size:max(8px,calc(var(--mfs,8px) - 2px));color:var(--sub);border-left:3px solid var(--sub)}
+.mgut div{text-align:right;padding-right:2px;line-height:1}
+/* 2列の右半分（15〜20時）の目盛り。日の右に付けるので左寄せ・色違いにする */
+.mgut.gr{border-left:0;color:var(--accent)}
+.mday.nl{border-left:0}
+.mweek>:first-child{border-left:0}
+.mgut.gr div{text-align:left;padding:0 0 0 2px}
+.mhalf{border-left:2px dashed var(--sub);pointer-events:none;z-index:3}
+.mday{display:grid;background:var(--panel);min-width:0;position:relative;border-left:3px solid var(--sub)}
+.mday.out{background:var(--bg)}
+.mnow{z-index:4;height:2px;background:#e5484d;align-self:start;pointer-events:none;position:relative}
+.mday.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.mday.out>*{opacity:.45}
+.mhd{grid-row:1;display:flex;gap:4px;align-items:center;font-size:max(9px,calc(var(--mfs,9px) - 1px));line-height:var(--mhd);white-space:nowrap;overflow:hidden;cursor:pointer;padding:0 2px;color:var(--sub)}
+.mhd b{color:var(--ink);font-size:max(10px,var(--mfs,10px))}
+.mday.today .mhd b{background:var(--accent);color:#fff;border-radius:3px;padding:0 3px}
+.mday.red .mhd b{color:#c0392b}
+.mday.today .mhd b{color:#fff}
+.mhd .ex{overflow:hidden;text-overflow:ellipsis}
+.mbody{background-image:linear-gradient(to right,var(--line2) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px);pointer-events:none}
+.mev{z-index:2;min-width:0;overflow:hidden;white-space:nowrap;cursor:pointer;background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:2px solid var(--cf,#888);
+  font-size:var(--mfs,max(7px,calc(var(--mrow) - 2px)));line-height:var(--mrow);padding-left:1px;font-weight:700;margin:0 0 0 1px;letter-spacing:-.5px}
+.mev.t-record{--c:var(--ev-record);--cf:var(--ev-record-f)}
+.mev.t-clean{--c:var(--ev-clean);--cf:var(--ev-clean-f)}
+.mev.t-event{--c:var(--ev-event);--cf:var(--ev-event-f)}
