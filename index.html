@@ -197,6 +197,13 @@ main.fill{display:flex;flex-direction:column;overflow:hidden}
 .acts .btn{padding:9px 12px}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:60;background:#222;color:#fff;border-radius:12px;padding:10px 14px;display:none;gap:12px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #toast.show{display:flex}
+#toast.err{background:var(--bad);cursor:pointer}
+/* 通信中の表示（0.5秒以上かかるときだけ出す） */
+#busy{position:fixed;top:calc(env(safe-area-inset-top) + 54px);left:50%;transform:translateX(-50%);z-index:70;display:none;align-items:center;gap:8px;
+  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:13px;white-space:nowrap;pointer-events:none}
+#busy.show{display:flex}
+#busy i{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 #toast button{background:transparent;border:1px solid #fff8;color:#fff;border-radius:8px;padding:4px 10px;white-space:nowrap}
 /* 月（全部屋） */
 /* 先生ごとの月 */
@@ -234,7 +241,7 @@ main.fill{display:flex;flex-direction:column;overflow:hidden}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   html,body{height:auto;overflow:visible;background:#fff}
   body{display:block}
-  .top,.tabs,.wbar,#sheet,#toast{display:none!important}
+  .top,.tabs,.wbar,#sheet,#toast,#busy{display:none!important}
   .tmweek,.tmhead{min-width:0}
   main,main.fill{display:block;overflow:visible}
   .tmwrap{overflow:visible;padding:0}
@@ -281,6 +288,7 @@ main.fill{display:flex;flex-direction:column;overflow:hidden}
 </nav>
 <div id="sheet" class="sheet hidden"><div class="sheet-bg" data-e="close"></div><div class="sheet-panel" id="panel"></div></div>
 <div id="toast"></div>
+<div id="busy" role="status" aria-live="polite"><i></i><span></span></div>
 
 <!-- APIのURLとログインのクライアントID（公開してよい値） -->
 <script src="config.js"></script>
@@ -334,7 +342,12 @@ function render() {
   // 共通アカウントには「自分」の予定がないので、タブを出さない
   $('.tabs [data-view="my"]').style.display = UI.login === CLASSROOM ? 'none' : '';
   const m = $('#main');
-  if (!ready) { m.className = ''; m.innerHTML = `<div class="wrap"><div class="empty-note">${esc(bootMsg)}</div></div>`; return; }
+  if (!ready) {
+    m.className = '';
+    m.innerHTML = bootFailed ? `<div class="wrap"><div class="msg bad">${esc(bootMsg)}</div><div class="acts"><button class="btn pri" data-act="boot">もう一度試す</button></div></div>`
+      : `<div class="wrap"><div class="empty-note">${esc(bootMsg)}</div></div>`;
+    return;
+  }
   // 表示する期間の予定がまだ読み込まれていなければ、読み込んでから描く
   const vr = viewRange(), retry = msg => `<div class="wrap"><div class="msg bad">${esc(msg)}</div><div class="acts"><button class="btn pri" data-act="retry">もう一度読み込む</button></div></div>`;
   if (((vr && !covered(vr[0], vr[1])) || (UI.view === 'student' && UI.sid && sLoaded !== UI.sid)) && failedRecently()) { m.className = ''; m.innerHTML = retry(loadErrMsg); return; }
@@ -1237,11 +1250,41 @@ let toastTimer = null;
 function toastMsg(text, action) {
   const t = $('#toast');
   t.innerHTML = `<span>${esc(text)}</span>` + (action ? `<button id="toastAct">${esc(action[0])}</button>` : '');
+  t.classList.remove('err'); t.onclick = null;
   t.classList.add('show');
   if (action) $('#toastAct').onclick = () => { t.classList.remove('show'); action[1](); };
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), action ? 7000 : 3000);
 }
+// エラーのお知らせ：赤く、長めに出す（押すと閉じる）
+function toastErr(text) {
+  const t = $('#toast');
+  t.innerHTML = `<span>⚠ ${esc(text)}</span><button>閉じる</button>`;
+  t.classList.add('show', 'err');
+  t.onclick = () => t.classList.remove('show', 'err');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show', 'err'), 10000);
+}
+
+// 通信中の表示。始めるときに busyStart(文) を呼び、返ってきた関数を終わったときに呼ぶ。
+// すぐ終わるものでちらつかないよう、0.5秒たっても終わっていないときだけ出す
+const busyJobs = new Map();
+let busySeq = 0, busyTimer = null;
+function busyStart(label) {
+  const id = ++busySeq;
+  busyJobs.set(id, label);
+  updateBusy();
+  return () => { busyJobs.delete(id); updateBusy(); };
+}
+function updateBusy() {
+  const el = $('#busy');
+  if (!busyJobs.size) { clearTimeout(busyTimer); busyTimer = null; el.classList.remove('show'); return; }
+  // 同時にいくつか動いているときは、保存 → ログイン → 読み込みの順に優先して出す
+  const labels = [...busyJobs.values()];
+  el.querySelector('span').textContent = labels.find(l => l.startsWith('保存')) || labels.find(l => l.includes('ログイン')) || labels[labels.length - 1];
+  if (!el.classList.contains('show') && !busyTimer) busyTimer = setTimeout(() => { busyTimer = null; if (busyJobs.size) el.classList.add('show'); }, 500);
+}
+
 // msg：ログインし直してほしい理由など
 function openLogin(msg) {
   $('#panel').innerHTML = `<div class="shead"><h2>ログイン</h2>${ready ? '<button class="iconbtn" data-e="close">✕</button>' : ''}</div><div class="sbody">
@@ -1274,11 +1317,17 @@ async function openLog() {
 // ログインは Google の IDトークン（1時間有効）。APIを呼ぶたびに送り、Apps Script 側で本物か・許可された人かを確かめる
 const CFG = window.MENUET_CONFIG || {};
 const TOKEN_KEY = 'menuet-yoyaku-token';
-let ME = null, SV = null, ready = false, bootMsg = 'ログインしてください', token = null, tokenWaiters = [];
+let ME = null, SV = null, ready = false, bootMsg = 'ログインしてください', bootFailed = false, token = null, tokenWaiters = [];
 try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); if (t && t.exp * 1000 > Date.now() + 60000) token = t; } catch (e) { }
 let gisInit = false;
+let gisWait = 0;
 function gisReady(fn) {
-  if (!(window.google && google.accounts && google.accounts.id)) return void setTimeout(() => gisReady(fn), 200);
+  if (!(window.google && google.accounts && google.accounts.id)) {
+    // Google のログインの部品が読み込めない（通信が切れているなど）ときは、待ち続けずに知らせる
+    if (++gisWait === 50) { toastErr('Google のログインの準備ができません。通信を確かめて、ページを読み込み直してください'); if (!ready) { bootMsg = 'Google のログインの準備ができません。通信を確かめて、ページを読み込み直してください'; bootFailed = true; render(); } }
+    return void setTimeout(() => gisReady(fn), 200);
+  }
+  gisWait = 0;
   if (!gisInit) {
     google.accounts.id.initialize({ client_id: CFG.clientId, callback: onCredential, auto_select: true, cancel_on_tap_outside: false, use_fedcm_for_prompt: true });
     gisInit = true;
@@ -1303,8 +1352,17 @@ function getToken() {
     setTimeout(() => { if (tokenWaiters.length && !$('#gbtn')) openLogin('ログインの期限が切れました。もう一度ログインしてください'); }, 6000);
   });
 }
+// 操作ごとの「処理中」の文。version（数分おきの確かめ）は裏で静かに行うので出さない
+const BUSY_LABEL = { init: 'ログインしています…', events: '予定を読み込んでいます…', student: '予定を読み込んでいます…', log: '読み込んでいます…',
+  add: '保存しています…', update: '保存しています…', cancel: '保存しています…', uncancel: '保存しています…', noMakeup: '保存しています…', delete: '保存しています…' };
 async function api(action, params) {
-  const cred = await getToken();
+  const done = BUSY_LABEL[action] ? busyStart(BUSY_LABEL[action]) : () => { };
+  try { return await callApi(action, params); } finally { done(); }
+}
+async function callApi(action, params) {
+  let cred;
+  if (token && token.exp * 1000 > Date.now() + 60000) cred = token.cred;
+  else { const done = busyStart('ログインを確かめています…'); try { cred = await getToken(); } finally { done(); } }
   let res;
   try {
     // Content-Type を text/plain にして、ブラウザの事前の問い合わせ（プリフライト）を避ける
@@ -1323,7 +1381,7 @@ async function api(action, params) {
 }
 // 起動：自分・先生・部屋・生徒を読み、今日の前後の予定を読む
 async function start() {
-  bootMsg = '読み込んでいます…'; render();
+  bootMsg = '読み込んでいます…'; bootFailed = false; render();
   try {
     const j = await api('init');
     ME = j.me; SV = j.version;
@@ -1333,7 +1391,7 @@ async function start() {
     await ensureRange(addDays(today(), -42), addDays(today(), 120));
     ready = true;
     render();
-  } catch (e) { bootMsg = e.message; render(); }
+  } catch (e) { bootMsg = e.message; bootFailed = !['auth', 'forbidden'].includes(e.code); render(); }
 }
 
 // 読み込んだ期間（LR＝[from, to]）。足りない分だけ取りに行く。1回に取るのは1年分まで
@@ -1341,7 +1399,7 @@ let LR = null, loadChain = Promise.resolve(), sLoaded = null;
 // 読み込みに失敗したとき（電波が悪いなど）は、しばらく自動で読み直さない（何度も失敗を繰り返さないように）
 let loadErr = 0, loadErrMsg = '';
 const failedRecently = () => Date.now() - loadErr < 15000;
-const onLoadError = e => { loadErr = Date.now(); loadErrMsg = e.message; toastMsg(e.message); };
+const onLoadError = e => { loadErr = Date.now(); loadErrMsg = e.message; if (!['auth', 'forbidden'].includes(e.code)) toastErr(e.message); };
 const covered = (f, t) => !!LR && f >= LR[0] && t <= LR[1];
 function chunks(a, b) {
   const out = [];
@@ -1410,8 +1468,8 @@ async function mutate(action, params, okMsg, then) {
     document.querySelectorAll('#panel .acts .btn').forEach(b => b.disabled = false);
     if (e.code === 'auth' || e.code === 'forbidden') return;
     const msg = `<div class="msg bad"><b>${esc(e.message)}</b>${e.conflicts ? `<ul>${e.conflicts.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</div>`;
-    if (box) { box.innerHTML = msg; if (btn) { btn.disabled = false; btn.textContent = 'もう一度入れる'; } }
-    else toastMsg(e.message);
+    if (box) { box.innerHTML = msg; box.scrollIntoView({ block: 'nearest' }); if (btn) { btn.disabled = false; btn.textContent = 'もう一度入れる'; } }
+    else toastErr(e.message);
     if (e.code === 'conflict' || e.code === 'gone') reloadAll();
   }
 }
@@ -1455,6 +1513,7 @@ document.addEventListener('click', ev => {
   switch (act) {
     case 'login': return ready ? openMenu() : openLogin();
     case 'retry': loadErr = 0; break;
+    case 'boot': return token ? start() : openLogin();
     case 'menu': return openMenu();
     case 'day-1': UI.date = addDays(UI.date, -1); break;
     case 'day+1': UI.date = addDays(UI.date, 1); break;
