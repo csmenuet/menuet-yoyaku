@@ -94,6 +94,7 @@ main.fill{display:flex;flex-direction:column;overflow:hidden}
 .ev.t-absent{--c:var(--ev-absent);--cf:var(--ev-absent-f);background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(0,0,0,.06) 6px 12px)}
 .ev.t-group{border-left-style:double;border-left-width:6px}
 .ev.t-practice{border-left-style:dotted}
+.ev.t-trial{border-left-style:dashed}
 .ev.dim{opacity:.5}
 .ev.mine{box-shadow:0 0 0 2px var(--cf) inset}
 .now{z-index:6;height:2px;background:#e5484d;align-self:start;pointer-events:none;position:relative}
@@ -575,11 +576,11 @@ function renderMonth() {
 function teacherMonth(first, last, tid) {
   const t = TMAP.get(tid), f = pd(first);
   const mine = d => (byDate.get(d) || []).filter(e => e.status !== 'cancel' && tOf(e).includes(tid)).sort((a, b) => a.start - b.start);
-  // 月のまとめ：メインで持つレッスン、伴奏で入るレッスン、教室外・不在の日数
-  let main = 0, acc = 0, mins = 0;
+  // 月のまとめ：メインで持つレッスン、伴奏で入るレッスン、体験（伴奏を含む。生徒は無料だが先生の給与には数える）
+  let main = 0, acc = 0, trial = 0, mins = 0;
   for (let d = first; d <= last; d = addDays(d, 1)) for (const e of mine(d)) {
-    if (e.type !== 'lesson' && e.type !== 'group') continue;
-    if (tOf(e)[0] === tid) main++; else acc++;
+    if (e.type !== 'lesson' && e.type !== 'group' && e.type !== 'trial') continue;
+    if (e.type === 'trial') trial++; else if (tOf(e)[0] === tid) main++; else acc++;
     mins += e.len;
   }
   const line = e => {
@@ -594,7 +595,7 @@ function teacherMonth(first, last, tid) {
   };
   let h = `<div class="tmwrap" data-k="tmonth${first}${tid}">
     <div class="ptitle">${f.getFullYear()}年${f.getMonth() + 1}月　${esc(t.full)}先生のレッスン予定</div>
-    <div class="psum">レッスン ${main}コマ・伴奏 ${acc}コマ（計${mins / 60 | 0}時間${mins % 60 ? mins % 60 + '分' : ''}）　印刷日 ${md(today())}</div>
+    <div class="psum">レッスン ${main}コマ・伴奏 ${acc}コマ${trial ? `・体験 ${trial}回` : ''}（計${mins / 60 | 0}時間${mins % 60 ? mins % 60 + '分' : ''}）　印刷日 ${md(today())}</div>
     <div class="tmweek tmhead">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<div>${w}</div>`).join('')}</div>`;
   for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) {
     h += `<div class="tmweek">`;
@@ -1055,7 +1056,7 @@ function renderEditor(first) {
     h += `</div>`;
   }
   if (T.group) h += `<div class="fld"><label>グループ名</label><input class="inp wide" data-f="group" list="groups" value="${esc(D.group)}" placeholder="例：アマービレ"><datalist id="groups">${[...new Set(S.events.filter(e => e.group).map(e => e.group))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>`;
-  if (T.title) h += `<div class="fld"><label>名前</label><input class="inp wide" data-f="title" value="${esc(D.title)}" placeholder="${esc(T.label)}"></div>`;
+  if (T.title) h += `<div class="fld"><label>${esc(T.titleLabel || '名前')}</label><input class="inp wide" data-f="title" value="${esc(D.title)}" placeholder="${esc(T.titleHint || T.label)}"></div>`;
   if (T.place) h += `<div class="fld"><label>場所・内容</label><input class="inp wide" data-f="place" value="${esc(D.place)}" placeholder="例：中央公民館"></div>`;
   const rows = useRows(), weekly = useWeekly();
   if (!D.editing && !D.makeupOf && T.rows) h += `<div class="fld"><span class="lab">入れ方</span><div class="opts"><button class="opt${weekly ? '' : ' on'}" data-e="mode" data-v="dates">日にちを選ぶ</button><button class="opt${weekly ? ' on' : ''}" data-e="mode" data-v="weekly">曜日で決める（1年分など）</button></div></div>`;

@@ -33,6 +33,8 @@ const isBookable = s => s.status === '在籍' || s.status === '休会';
 const TYPES = {
   lesson:   { label: 'レッスン', rooms: 'one',   teachers: 'mainsub', student: true, rows: true },
   group:    { label: 'グループ', rooms: 'one',   teachers: 'mainsub', group: true, rows: true },
+  // 体験：入会前の人の1回だけのレッスン。生徒ではないので、名前（任意・わかる範囲）を文字で持つ
+  trial:    { label: '体験',     rooms: 'one',   teachers: 'mainsub', title: true, titleLabel: '申し込んだ人の名前（任意）', titleHint: '例：やまだ（わかる範囲で）' },
   practice: { label: '先生練習', rooms: 'one',   teachers: 'multi', title: true, repeat: true },
   record:   { label: '録音',     rooms: 'multi', teachers: 'multi', title: true },
   clean:    { label: '掃除',     rooms: 'multi', teachers: 'none', title: true, repeat: true },
@@ -136,6 +138,7 @@ const getEv = id => S.events.find(e => e.id === id);
 function evTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId) || '（生徒未定）';
   if (e.type === 'group') return e.group || 'グループ';
+  if (e.type === 'trial') return e.title ? `体験 ${e.title}` : '体験';
   if (e.type === 'out') return e.place || '教室外';
   if (e.type === 'absent') return '不在';
   return e.title || TYPES[e.type].label;
@@ -147,13 +150,14 @@ function evWho(e) {
 }
 const evTime = e => e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`;
 function teacherStyle(e) {
-  if (!['lesson', 'group', 'practice'].includes(e.type)) return '';
+  if (!['lesson', 'group', 'trial', 'practice'].includes(e.type)) return '';
   const t = TMAP.get(tOf(e)[0]);
   return t ? `--c:${t.bg};--cf:${t.fg};` : '';
 }
 function shortTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId).split('　')[0] || '？';
   if (e.type === 'group') return e.group || 'グループ';
+  if (e.type === 'trial') return '体験';
   return evTitle(e);
 }
 
