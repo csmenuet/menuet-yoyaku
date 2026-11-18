@@ -26,7 +26,9 @@ body,.mhd,.mev{cursor:none}
   今月の全部屋を、1日を9〜15時と15〜21時の2列に折り返して、画面いっぱいに出す。
   テンキー（またはキーボード）で月を送れる：←↑（4・8）で前の月、→↓（6・2）で次の月、Enter（5・0）で今月。
   NumLock のオン・オフどちらでも動く。しばらく触らなければ今月に戻る。
-  URL に ?key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は2分ごとに取り直す。
+  URL に #key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は2分ごとに取り直す。
+  # のあとは GitHub Pages のサーバーに送られないので、合言葉がアクセスログに残らない。
+  前の形（?key=）で開いたときも動くが、すぐに #key= の形に書き換える（あとの読み直しで合言葉を送らないように）。
   ページ自体（このファイル）が更新されたら自分で読み直す（git push で直した画面が、教室に行かなくても反映されるように）。
   念のため、毎日夜中にも1回ページ全体を読み直す。
 -->
@@ -37,7 +39,8 @@ body,.mhd,.mev{cursor:none}
 <script>
 'use strict';
 const CFG = window.MENUET_CONFIG || {};
-const BKEY = new URLSearchParams(location.search).get('key') || '';
+const BKEY = new URLSearchParams(location.hash.slice(1)).get('key') || new URLSearchParams(location.search).get('key') || '';
+if (BKEY && location.search) history.replaceState(null, '', location.pathname + '#key=' + encodeURIComponent(BKEY));
 let shownWeeks = 5;
 // 今月からいくつ送っているか（0＝今月）と、最後にキーを押した時刻
 let offset = 0, lastKey = 0;
@@ -63,7 +66,7 @@ function render() {
 // 表示する月の予定を読む（月曜〜日曜の週でそろえて、前後の月の日も含める）
 async function refresh() {
   if (!CFG.apiUrl) { problem = '設定（config.js）の apiUrl が空です'; return render(); }
-  if (!BKEY) { problem = 'URL の最後に ?key=掲示の合言葉 を付けて開いてください'; return render(); }
+  if (!BKEY) { problem = 'URL の最後に #key=掲示の合言葉 を付けて開いてください'; return render(); }
   const first = shownMonth(), f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
   const from = mondayOf(first), to = addDays(mondayOf(last), 6);
   try {
