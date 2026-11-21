@@ -786,7 +786,7 @@ function renderStudent() {
     const all = S.events.filter(e => g ? e.type === 'group' && e.groupId === g.id : e.studentId === s.id).sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1);
     const pend = all.filter(e => e.status === 'cancel' && e.makeup === 'pending');
     const mode = UI.sMode, seg = (v, l) => `<button class="opt${mode === v ? ' on' : ''}" data-act="sMode" data-v="${v}">${l}</button>`;
-    h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 生徒の一覧</button><span class="grow"></span><button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button></div>
+    h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 一覧</button><span class="grow"></span><button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button></div>
       <div class="ctitle" style="font-size:22px">${esc(s.name)}</div><div class="csub">${g ? `グループ${g.teachers.length ? '・' + g.teachers.map(t => esc(tFull(t)) + '先生').join('・') : ''}${g.active ? '' : '・終了したグループ'}` : esc(s.kana)}・${s.id}</div>
       <div class="row" style="margin-top:10px"><div class="opts">${seg('future', 'これから')}${seg('month', '月ごと')}${seg('past', 'これまで')}</div>` +
       `<span class="grow"></span>${mode === 'future' ? `<button class="btn" data-act="sPrint" data-v="list" title="日にちごとの表（28回まで）">印刷：一覧</button><button class="btn" data-act="sPrint" data-v="month" title="月ごとに日にちを並べる（1年分など）">印刷：月ごと</button>` : ''}</div>`;
