@@ -1,22 +1,26 @@
-/* レッスン予定デモの共通の見た目（操作用 lesson-schedule.html と掲示用 board.html で使う） */
+/* レッスン予約の共通の見た目（操作用 index.html と掲示用 board.html で使う）
+   色は教室のホームページ（http://www.csmenuet.net/）に合わせる：生成りの地、茶色の文字、オレンジ、黄緑、ロゴの赤。
+   ボタンなど白い文字を載せる色（--accent）は、読みやすさのためにホームページのオレンジ（--brand-orange）より濃くしている */
 :root{
-  --bg:#f5f4f0; --panel:#fff; --ink:#1f2328; --sub:#6b7078; --line:#dedcd6; --line2:#eeece7;
-  --accent:#2f6fde; --accentbg:#e6eefc; --bad:#c62f2f; --badbg:#fdeaea; --warn:#8a5a00; --warnbg:#fff3d1;
-  --ok:#1f7a3a; --okbg:#e3f5e8; --free:#c9f0d3; --freeline:#2f9e55;
+  --brand-orange:#e48740; --brand-green:#8dc131; --brand-red:#cd332b;
+  --brand-font:"Hiragino Maru Gothic ProN","Zen Maru Gothic","BIZ UDPGothic",sans-serif;
+  --bg:#f6f0e6; --panel:#fffdf9; --ink:#3d3024; --sub:#75644f; --line:#e3d8c6; --line2:#efe7da;
+  --accent:#b8561a; --accentbg:#fbe9da; --bad:#c62f2f; --badbg:#fdeaea; --warn:#8a5a00; --warnbg:#fff3d1;
+  --ok:#4d7c0f; --okbg:#eef6dc; --free:#dcefb8; --freeline:#6aa121;
   --rowh:34px; --headh:30px; --timew:44px; --colmin:78px; --fs:14px;
   --ev-record:#ffd9d9; --ev-record-f:#a11d1d; --ev-clean:#e6e6e6; --ev-clean-f:#4a4a4a;
   --ev-event:#eadcff; --ev-event-f:#5b2aa8; --ev-out:#ffe7c7; --ev-out-f:#8a4b00; --ev-absent:#e9ebee; --ev-absent-f:#4b5563;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#16181b; --panel:#1f2226; --ink:#e8e8e6; --sub:#9aa0a8; --line:#363a40; --line2:#2a2d32;
-    --accent:#7aa7ff; --accentbg:#22314d; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
+    --bg:#1c1814; --panel:#26211b; --ink:#ece4d8; --sub:#a89a88; --line:#3e362c; --line2:#2f2922;
+    --accent:#f0a060; --accentbg:#3d2a1a; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
     --ok:#7ad69a; --okbg:#1f3527; --free:#1f4d2e; --freeline:#56c27c;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#16181b; --panel:#1f2226; --ink:#e8e8e6; --sub:#9aa0a8; --line:#363a40; --line2:#2a2d32;
-  --accent:#7aa7ff; --accentbg:#22314d; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
+  --bg:#1c1814; --panel:#26211b; --ink:#ece4d8; --sub:#a89a88; --line:#3e362c; --line2:#2f2922;
+  --accent:#f0a060; --accentbg:#3d2a1a; --bad:#ff8a8a; --badbg:#3d2224; --warn:#f0c25a; --warnbg:#3a3020;
   --ok:#7ad69a; --okbg:#1f3527; --free:#1f4d2e; --freeline:#56c27c;
 }
 *{box-sizing:border-box}
