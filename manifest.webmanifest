@@ -1,0 +1,11 @@
+{
+  "name": "メヌエット レッスン予約",
+  "short_name": "レッスン予約",
+  "display": "browser",
+  "background_color": "#f2ebe0",
+  "theme_color": "#e48740",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

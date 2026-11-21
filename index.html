@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>レッスン予約</title>
+<!-- ホーム画面に追加したときのアイコンと名前。ブラウザで開く前提なので display は browser。
+     start_url を書かないのは、追加したときの URL（?tab=student など）のまま開くようにするため（タブごとにアイコンを分けられる） -->
+<link rel="manifest" href="manifest.webmanifest">
+<!-- アイコンの元は icon.svg（教室のホームページの色。文字の形が端末で変わらないよう、表示には PNG を使う） -->
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="レッスン予約">
 <link rel="stylesheet" href="core.css">
 <style>
 html,body{margin:0;height:100%}
@@ -312,6 +319,15 @@ const KANA_ROWS = [
 const UI = { view: 'my', login: null, date: today(), myDate: today(), week: mondayOf(today()), wf: 'ALL', hl: '', sq: '', krow: '', mineOnly: true, sid: null, wfree: false, mf: 'ALL', sMode: 'future', sMonth: today().slice(0, 8) + '01', month: today().slice(0, 8) + '01', mrow: 7, mfold: true };
 const UKEY = 'menuet-yoyaku-ui';
 try { const u = JSON.parse(localStorage.getItem(UKEY) || '{}'); if (u.view) UI.view = u.view; if (u.wf) UI.wf = u.wf; if ([7, 10, 13].includes(u.mrow)) UI.mrow = u.mrow; if (typeof u.mfold === 'boolean') UI.mfold = u.mfold; if (u.mf) UI.mf = u.mf; } catch (e) { }
+// 最初に開くタブを URL で指定できる（?tab=student など）。ホーム画面にタブごとのアイコンを置くため。
+// 指定がなければ前回のタブ。ホーム画面に追加したときの名前にもタブを付ける（教室（共通）の「自分」は起動時に「日」にする）
+const TAB_NAMES = { my: '自分', student: '生徒', day: '日', week: '週', month: '月' };
+const TAB_Q = new URLSearchParams(location.search).get('tab');
+if (Object.hasOwn(TAB_NAMES, TAB_Q || '')) {
+  UI.view = TAB_Q;
+  document.title = `レッスン予約（${TAB_NAMES[TAB_Q]}）`;
+  document.querySelector('meta[name="apple-mobile-web-app-title"]').content = `予約（${TAB_NAMES[TAB_Q]}）`;
+}
 function saveUI() { try { localStorage.setItem(UKEY, JSON.stringify({ view: UI.view, wf: UI.wf, mrow: UI.mrow, mfold: UI.mfold, mf: UI.mf })); } catch (e) { } }
 
 /* ===== 表示用の文字 ===== */
