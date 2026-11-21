@@ -21,6 +21,13 @@ body{background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMac
 body,.mhd,.mev{cursor:none}
 .bbar .bstat{font-size:12px;color:var(--bad);white-space:nowrap}
 .bmsg{margin:40px auto;max-width:640px;font-size:18px}
+/* 月を送ったときに、読み込み中であることを画面の真ん中に出す（キーが効いていないと思って連打しないように） */
+.bload{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:12px;
+  padding:14px 28px;border:1px solid var(--line);border-radius:999px;background:var(--panel);box-shadow:0 4px 18px rgba(61,48,36,.12);
+  font-family:var(--brand-font);font-size:18px;color:var(--sub);white-space:nowrap;z-index:10}
+.bload .spin{width:20px;height:20px;border:3px solid var(--line);border-top-color:var(--brand-orange);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mwrap.dim{opacity:.45}
 .bbar .bhint{font-size:14px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:1px 10px;white-space:nowrap}
 </style>
 </head>
@@ -30,7 +37,7 @@ body,.mhd,.mev{cursor:none}
   今月の全部屋を、1日を9〜15時と15〜21時の2列に折り返して、画面いっぱいに出す。
   テンキー（またはキーボード）で月を送れる：←↑（4・8）で前の月、→↓（6・2）で次の月、Enter（5・0）で今月。
   NumLock のオン・オフどちらでも動く。しばらく触らなければ今月に戻る。
-  URL に #key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は2分ごとに取り直す。
+  URL に #key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は教室の時間は2分ごと、それ以外は30分ごとに取り直す。
   # のあとは GitHub Pages のサーバーに送られないので、合言葉がアクセスログに残らない。
   前の形（?key=）で開いたときも動くが、すぐに #key= の形に書き換える（あとの読み直しで合言葉を送らないように）。
   ページ自体（このファイル）が更新されたら自分で読み直す（git push で直した画面が、教室に行かなくても反映されるように）。
@@ -51,11 +58,18 @@ let offset = 0, lastKey = 0;
 const IDLE_MS = 3 * 60 * 1000;   // これだけ触らなければ今月に戻す
 // 読み込んだ月（YYYY-MM-01）、最後に読めた時刻、通信できないときのお知らせ
 let loaded = null, lastOk = null, problem = '';
+// 読んだ月の予定を覚えておき、前に見た月へはすぐに切り替える（そのあと新しい予定を読み直す）
+const cache = new Map();
+// 読み込み中の、まだ出していない月（あれば「読み込んでいます」を出す）。seq は最後に頼んだ読み込みの番号（古い返事は捨てる）
+let loading = null, seq = 0, keyTimer = 0;
 const shownMonth = () => { const f0 = pd(today().slice(0, 8) + '01'); return ds(new Date(f0.getFullYear(), f0.getMonth() + offset, 1)); };
 function render() {
   const main = $('#main');
-  if (!loaded) { main.innerHTML = `<div class="bmsg">${esc(problem || '読み込んでいます…')}</div>`; return; }
-  const f0 = pd(today().slice(0, 8) + '01'), first = loaded, f = pd(first);
+  const f0 = pd(today().slice(0, 8) + '01');
+  const loadMsg = m => { const lf = pd(m); return `<div class="bload"><span class="spin"></span>${lf.getFullYear() !== f0.getFullYear() ? lf.getFullYear() + '年' : ''}${lf.getMonth() + 1}月を読み込んでいます…</div>`; };
+  // 開いたばかりで、まだ何も読めていないとき
+  if (!loaded) { main.innerHTML = problem ? `<div class="bmsg">${esc(problem)}</div>` : loadMsg(loading || shownMonth()); return; }
+  const first = loaded, f = pd(first);
   const last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
   // 1日を含む週から、月末を含む週まで（前後の月の日は薄く出す）
   const weeks = [];
@@ -65,6 +79,10 @@ function render() {
     (offset ? `<span class="bhint">今月ではありません（Enterで今月に戻る）</span>` : '') +
     (problem ? `<span class="bstat">${esc(problem)}${lastOk ? `（${lastOk.getHours()}:${pad(lastOk.getMinutes())}の予定を表示中）` : ''}</span>` : '') + `${legend()}</div>` +
     monthGrid(weeks, d => d < first || d > last, true, '', 'board' + first, true);
+  if (loading) {
+    main.querySelector('.mwrap')?.classList.add('dim');
+    main.insertAdjacentHTML('beforeend', loadMsg(loading));
+  }
   fit();
 }
 // 表示する月の予定を読む（月曜〜日曜の週でそろえて、前後の月の日も含める）
@@ -73,18 +91,34 @@ async function refresh() {
   if (!BKEY) { problem = 'URL の最後に #key=掲示の合言葉 を付けて開いてください'; return render(); }
   const first = shownMonth(), f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
   const from = mondayOf(first), to = addDays(mondayOf(last), 6);
+  lastFetch = Date.now();
+  const my = ++seq;
   try {
     const res = await fetch(`${CFG.apiUrl}?key=${encodeURIComponent(BKEY)}&from=${from}&to=${to}`, { cache: 'no-store' });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error);
-    setMaster(j);
-    S.events = j.events; reindex();
-    loaded = first; lastOk = new Date(); problem = '';
+    cache.set(first, j);
+    if (my !== seq) return;
+    show(first, j);
+    lastOk = new Date(); problem = '';
   } catch (e) {
+    if (my !== seq) return;
     // 読めなかったときは、前に読めた予定をそのまま出しておく
     problem = /合言葉/.test(e.message) ? e.message : '予定を読み込めません';
   }
+  loading = null;
   render();
+}
+function show(first, j) { setMaster(j); S.events = j.events; reindex(); loaded = first; }
+// 月を送ったとき：前に読んだ月ならすぐ出し、まだなら「読み込んでいます」を出す。
+// 続けて押されたときは、止まってから0.4秒後に最後の月だけを読む
+function goMonth() {
+  const first = shownMonth(), c = cache.get(first);
+  seq++;   // 読み込み中の前の月の返事は使わない
+  if (c) { show(first, c); loading = null; } else loading = first === loaded ? null : first;
+  render();
+  clearTimeout(keyTimer);
+  keyTimer = setTimeout(refresh, 400);
 }
 // 行の高さと文字の大きさを、画面の縦横に合わせて決める（スクロールなしで収める）
 function fit() {
@@ -106,11 +140,13 @@ function fit() {
 window.addEventListener('resize', fit);
 // 毎分描き直す（日付が変われば今日の枠が動く）。ほかの月を出したまま放っておかれたら今月に戻す。月が変わったら読み直す
 setInterval(() => {
-  if (offset && Date.now() - lastKey > IDLE_MS) offset = 0;
-  if (loaded && loaded !== shownMonth()) refresh(); else render();
+  if (offset && Date.now() - lastKey > IDLE_MS) { offset = 0; return goMonth(); }
+  if (loaded && loaded !== shownMonth() && !loading) refresh(); else render();
 }, 60000);
-// 予定は2分ごとに取り直す
-setInterval(refresh, 2 * 60 * 1000);
+// 予定は教室の時間（8:00〜21:30）は2分ごと、それ以外と教室の休みの日は30分ごとに取り直す（だれも見ていない時間に呼ばないように）
+let lastFetch = 0;
+const openNow = () => { const n = new Date(), m = n.getHours() * 60 + n.getMinutes(); return m >= DAY_START - 60 && m < DAY_END + 30 && !closedName(today()); };
+setInterval(() => { if (Date.now() - lastFetch >= (openNow() ? 2 : 30) * 60 * 1000 - 5000) refresh(); }, 60000);
 // テンキー：NumLock がオフなら矢印・Enter、オンなら数字が届くので、両方を受ける
 const KEYS_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp', '4', '8', '-'], KEYS_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', '6', '2', '+'], KEYS_HOME = ['Enter', 'Home', '5', '0'];
 document.addEventListener('keydown', ev => {
@@ -121,7 +157,7 @@ document.addEventListener('keydown', ev => {
   ev.preventDefault();
   offset = Math.max(-12, Math.min(12, offset));
   lastKey = Date.now();
-  refresh();
+  goMonth();
 });
 // ページ自体の更新：10分ごとに、このページと共通部分のファイルが変わっていないか確かめ、変わっていたら読み直す
 const SELF = ['board.html', 'core.js', 'core.css', 'config.js'];
@@ -138,6 +174,7 @@ pageSig().then(sig => { selfSig = sig; }).catch(() => { });
 const bootDay = today();
 setInterval(() => { if (today() !== bootDay && new Date().getHours() >= 3) location.reload(); }, 5 * 60 * 1000);
 
+render();   // 最初の読み込みが終わるまで「読み込んでいます」を出す
 refresh();
 </script>
 </body>
