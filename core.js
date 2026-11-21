@@ -1,12 +1,12 @@
 // レッスン予約の共通部分（操作用 index.html と掲示用 board.html で使う）
-// 先生・部屋・生徒と予定は、API（Apps Script）から読み込んで setMaster / setEvents で入れる
+// 先生・部屋・生徒・グループと予定は、API（Apps Script）から読み込んで setMaster / setEvents で入れる
 'use strict';
 /* ===== 定数 ===== */
 const DAY_START = 9 * 60, DAY_END = 21 * 60, SLOT = 30, NSLOT = (DAY_END - DAY_START) / SLOT;
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
 const PALETTE = ['#1d4ed8', '#be123c', '#15803d', '#a16207', '#7e22ce', '#0e7490', '#c2410c', '#334155', '#a21caf', '#4d7c0f', '#4338ca', '#8a4b1f'];
-// 先生・部屋・生徒（名簿マスターと予約スプレッドシートから。setMaster で入れる）
-let ROOMS = [], TEACHERS = [], TMAP = new Map(), STUDENTS = [], SMAP = new Map();
+// 先生・部屋・生徒・グループ（名簿マスターと予約スプレッドシートから。setMaster で入れる）
+let ROOMS = [], TEACHERS = [], TMAP = new Map(), STUDENTS = [], SMAP = new Map(), GROUPS = [], GMAP = new Map();
 // 色（#rrggbb）を白と混ぜて、枠の背景に使う薄い色を作る
 function tint(hex, k) {
   const n = parseInt(hex.slice(1), 16), mix = c => Math.round(c + (255 - c) * k);
@@ -23,6 +23,9 @@ function setMaster(d) {
   STUDENTS = (d.students || []).map(s => ({ id: s.id, name: s.name, kana: s.kana || '', status: s.status || '' }))
     .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'));
   SMAP = new Map(STUDENTS.map(s => [s.id, s]));
+  // グループ：teachers はメインの先生（何人でも）。active：活動中（終了したグループは過去の予定の表示にだけ使う）
+  GROUPS = (d.groups || []).map(g => ({ id: g.id, name: g.name, teachers: g.teachers || [], active: g.active !== false }));
+  GMAP = new Map(GROUPS.map(g => [g.id, g]));
 }
 // 予約の選択肢に出す先生（在籍）と生徒（在籍・休会）
 const activeTeachers = () => TEACHERS.filter(t => t.active);
@@ -89,6 +92,8 @@ const holidayName = d => holidaysOf(+d.slice(0, 4)).get(d) || '';
 const roomsText = rs => !rs || !rs.length ? '部屋なし' : rs.length === ROOMS.length ? '全部屋' : rs.map(rName).join('・');
 
 const sName = id => (SMAP.get(id) || { name: '' }).name;
+// グループの予定の名前：グループシートの今の名前。見つからなければ、入れたときの名前
+const gName = e => (GMAP.get(e.groupId) || { name: '' }).name || e.group || 'グループ';
 
 /* ===== 重なりの判定 ===== */
 // 45分のレッスンは1時間の枠を押さえる（枠は30分単位に切り上げる）
@@ -137,7 +142,7 @@ const getEv = id => S.events.find(e => e.id === id);
 /* ===== 表示用の文字 ===== */
 function evTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId) || '（生徒未定）';
-  if (e.type === 'group') return e.group || 'グループ';
+  if (e.type === 'group') return gName(e);
   if (e.type === 'trial') return e.title ? `体験 ${e.title}` : '体験';
   if (e.type === 'out') return e.place || '教室外';
   if (e.type === 'absent') return '不在';
@@ -156,7 +161,7 @@ function teacherStyle(e) {
 }
 function shortTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId).split('　')[0] || '？';
-  if (e.type === 'group') return e.group || 'グループ';
+  if (e.type === 'group') return gName(e);
   if (e.type === 'trial') return '体験';
   return evTitle(e);
 }

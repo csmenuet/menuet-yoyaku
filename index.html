@@ -32,7 +32,7 @@ main.fill{display:flex;flex-direction:column;overflow:hidden}
 .tabs button.on{color:var(--accent);font-weight:700}
 .bar{display:flex;align-items:center;gap:6px;padding:8px 12px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--line2)}
 .bar .title{font-weight:700;font-size:16px;margin:0 4px}
-.bar .grow,.row>.grow{flex:1}
+.bar .grow,.row>.grow,.addrow>.grow{flex:1}
 .btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:5px 10px;white-space:nowrap}
 a.btn{color:inherit;text-decoration:none}
 .btn.sq{width:34px;padding:5px 0;text-align:center}
@@ -137,6 +137,7 @@ a.btn{color:inherit;text-decoration:none}
 .slist{display:flex;flex-wrap:wrap;gap:6px}
 .sbtn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:6px 10px;text-align:left}
 .sbtn small{display:block;color:var(--sub);font-size:11px}
+.sbtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .sbtn .me{color:var(--accent);font-size:10px;font-weight:700}
 /* sheet */
 .sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
@@ -152,6 +153,11 @@ a.btn{color:inherit;text-decoration:none}
 .fld{margin-top:12px}
 .fld>label,.fld>.lab{display:block;font-size:12px;color:var(--sub);margin-bottom:4px;font-weight:700}
 .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+/* 生徒の画面の上の「＋ 体験を入れる」など：狭いスマホでも1行に収める。ボタンを縮め、ラベルは区切り（span）のところで折り返す */
+.addrow{display:flex;gap:6px;align-items:stretch;margin-bottom:8px}
+.addrow .btn{flex:0 1 auto;min-width:0;padding:5px 8px;white-space:normal;line-height:1.3;text-align:center;display:flex;align-items:center;justify-content:center}
+.addrow .btn span{display:inline-block;white-space:nowrap}
+.addrow .btn>i{font-style:normal;min-width:0}
 .opts{display:flex;gap:6px;flex-wrap:wrap}
 .opt{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px}
 .opt.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
@@ -355,7 +361,7 @@ function nextOf(e) {
   const later = x => x.status !== 'cancel' && x.id !== e.id && (x.date > e.date || (x.date === e.date && x.start > e.start));
   let best = null;
   for (const x of S.events) {
-    const same = e.type === 'lesson' ? x.studentId === e.studentId && x.type === 'lesson' : e.type === 'group' ? x.type === 'group' && x.group === e.group : false;
+    const same = e.type === 'lesson' ? x.studentId === e.studentId && x.type === 'lesson' : e.type === 'group' ? x.type === 'group' && (e.groupId ? x.groupId === e.groupId : x.group === e.group) : false;
     if (same && later(x) && (!best || x.date < best.date || (x.date === best.date && x.start < best.start))) best = x;
   }
   return best;
@@ -694,6 +700,7 @@ function listItem(e, withDate, forStudent) {
 }
 
 /* 生徒を選ぶ部品（生徒の画面と予約の入力で共通） */
+const QUICK_TIP = '長押し（パソコンは右クリック）で、すぐ予約を入れる';
 function studentMatches(q, krow, mineOnly) {
   const mine = myStudentIds(), qk = kata(q), qn = String(q || '').replace(/[\s　]/g, '');
   const rowChars = krow ? (KANA_ROWS.find(k => k[0] === krow) || ['', ''])[1] : '';
@@ -719,16 +726,17 @@ function studentPicker(q, krow, mineOnly, act) {
   let h = `<div class="krow">${isTeacherLogin() ? `<button class="${mineOnly ? 'on' : ''}" data-${act}="mine" style="padding:5px 10px">自分の生徒</button>` : ''}` +
     KANA_ROWS.map(k => `<button class="${krow === k[0] ? 'on' : ''}" data-${act}="k${k[0]}">${k[0]}</button>`).join('') + `</div>`;
   if (!list.length) return h + `<div class="empty-note">見つかりません${mineOnly ? '（「自分の生徒」を外すと全員から探せます）' : ''}</div>` + newStudentNote(act);
-  h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}">${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
+  h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}"${act === 'sp' ? ` title="${QUICK_TIP}"` : ''}>${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
   if (more) h += `<div class="csub" style="margin-top:6px">ほか${more}人。名前か行で絞ってください</div>`;
   return h;
 }
 
-// 生徒に渡す「これからの予約」の印刷（A4縦1枚）。お休みにした回は載せない
+// 生徒に渡す「これからの予約」の印刷（A4縦1枚）。お休みにした回は載せない。グループのときも同じ形で印刷する
 const SPRINT_MAX = 28;
+const printHead = s => GMAP.has(s.id) ? s.name : s.name + ' さん';
 function studentPrint(s, fut, pend) {
   const list = fut.filter(e => e.status !== 'cancel'), shown = list.slice(0, SPRINT_MAX);
-  let h = `<div class="sprint sp-list"><div class="ptitle">${esc(s.name)} さん　レッスンの予定</div>
+  let h = `<div class="sprint sp-list"><div class="ptitle">${esc(printHead(s))}　レッスンの予定</div>
     <div class="psum">${md(today())}からの予約 ${list.length}回${list.length > shown.length ? `（先の${shown.length}回まで載せています）` : ''}${pend ? `・振替待ち ${pend}回` : ''}　印刷日 ${md(today())}</div>
     <table class="ptable"><thead><tr><th>日にち</th><th>時間</th><th>先生</th><th>部屋</th></tr></thead><tbody>`;
   for (const e of shown) {
@@ -741,7 +749,7 @@ function studentPrint(s, fut, pend) {
 // 月ごとの印刷：1年分など回数が多いとき用。先生ごとに「いつもの曜日・時間・部屋」を見出しに出し、
 // 月ごとの行に日にちを並べる。いつもと違う回だけ時間や部屋を添える
 function studentPrintMonthly(s, fut, pend) {
-  const list = fut.filter(e => e.status !== 'cancel' && TYPES[e.type].student);
+  const list = fut.filter(e => e.status !== 'cancel' && (e.type === 'lesson' || e.type === 'group'));
   const mains = TEACHERS.map(t => t.id).filter(t => list.some(e => tOf(e)[0] === t));
   const keyOf = e => [dow(e.date), e.start, e.len, e.rooms.join(','), tOf(e).join(',')].join('|');
   const usual = new Map(mains.map(t => {
@@ -752,7 +760,7 @@ function studentPrintMonthly(s, fut, pend) {
   }));
   const months = [...new Set(list.map(e => e.date.slice(0, 7)))];
   const ym = k => { const [y, m] = k.split('-').map(Number); return `${y}年${m}月`; };
-  let h = `<div class="sprint sp-month"><div class="ptitle">${esc(s.name)} さん　レッスンの予定${months.length ? `（${ym(months[0])}〜${ym(months[months.length - 1])}）` : ''}</div>
+  let h = `<div class="sprint sp-month"><div class="ptitle">${esc(printHead(s))}　レッスンの予定${months.length ? `（${ym(months[0])}〜${ym(months[months.length - 1])}）` : ''}</div>
     <div class="psum">${md(today())}からの予約 ${list.length}回${pend ? `・振替待ち ${pend}回` : ''}　印刷日 ${md(today())}</div>`;
   if (!list.length) return h + `<div>これからの予約はありません</div></div>`;
   h += `<div class="pusual">${mains.map(t => { const u = usual.get(t); return `<div><b>${esc(tFull(t))} 先生</b>　毎週${WD[u.w]}曜 ${hm(u.st)}–${hm(u.st + u.len)}　${esc(roomsText(u.rooms))}${u.ts.length > 1 ? `　伴奏 ${u.ts.slice(1).map(x => esc(tFull(x))).join('・')}` : ''}</div>`; }).join('')}<small>いつもと違う回は、日にちのあとに時間や部屋を書いています</small></div>`;
@@ -771,14 +779,15 @@ function studentPrintMonthly(s, fut, pend) {
 }
 function renderStudent() {
   let h = `<div class="wrap">`;
-  if (UI.sid && SMAP.has(UI.sid)) {
+  if (UI.sid && (SMAP.has(UI.sid) || GMAP.has(UI.sid))) {
     h = `<div class="wrap stu">`;
-    const s = SMAP.get(UI.sid), d0 = today();
-    const all = S.events.filter(e => e.studentId === s.id).sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1);
+    // グループも生徒と同じ画面で見る（UI.sid にグループIDが入る）
+    const g = GMAP.get(UI.sid), s = g || SMAP.get(UI.sid), d0 = today();
+    const all = S.events.filter(e => g ? e.type === 'group' && e.groupId === g.id : e.studentId === s.id).sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1);
     const pend = all.filter(e => e.status === 'cancel' && e.makeup === 'pending');
     const mode = UI.sMode, seg = (v, l) => `<button class="opt${mode === v ? ' on' : ''}" data-act="sMode" data-v="${v}">${l}</button>`;
     h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 生徒の一覧</button><span class="grow"></span><button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button></div>
-      <div class="ctitle" style="font-size:22px">${esc(s.name)}</div><div class="csub">${esc(s.kana)}・${s.id}</div>
+      <div class="ctitle" style="font-size:22px">${esc(s.name)}</div><div class="csub">${g ? `グループ${g.teachers.length ? '・' + g.teachers.map(t => esc(tFull(t)) + '先生').join('・') : ''}${g.active ? '' : '・終了したグループ'}` : esc(s.kana)}・${s.id}</div>
       <div class="row" style="margin-top:10px"><div class="opts">${seg('future', 'これから')}${seg('month', '月ごと')}${seg('past', 'これまで')}</div>` +
       `<span class="grow"></span>${mode === 'future' ? `<button class="btn" data-act="sPrint" data-v="list" title="日にちごとの表（28回まで）">印刷：一覧</button><button class="btn" data-act="sPrint" data-v="month" title="月ごとに日にちを並べる（1年分など）">印刷：月ごと</button>` : ''}</div>`;
     // 振替待ちはどの表示でも上に出す（忘れないように）
@@ -806,11 +815,26 @@ function renderStudent() {
   }
   // 入会前の人（体験）は生徒の一覧にいないので、ここから体験の予約を入れられるようにする。
   // 入会したその場で登録できるよう、名簿の新規登録フォームもいつでも開けるようにしておく（見つからないときの案内とは別）
-  h += `<div class="row" style="margin-bottom:8px"><span class="grow"></span><button class="btn" data-act="newTrial">＋ 体験を入れる</button>` +
-    (REG_URL ? `<a class="btn" href="${esc(REG_URL)}" target="_blank" rel="noopener">＋ 新しい生徒を登録</a>` : '') + `</div>`;
+  const lab = (...ps) => `<i>${ps.map(x => `<span>${x}</span>`).join('')}</i>`;
+  h += `<div class="addrow"><span class="grow"></span><button class="btn" data-act="newTrial">${lab('＋ 体験を', '入れる')}</button><button class="btn" data-act="newOther">${lab('＋ ほかの', '予定を', '入れる')}</button>` +
+    (REG_URL ? `<a class="btn" href="${esc(REG_URL)}" target="_blank" rel="noopener">${lab('＋ 新しい', '生徒を', '登録')}</a>` : '') + `</div>`;
+  h += groupList();
   h += `<input class="search" id="sq" type="search" placeholder="名前・ふりがなで探す（例：さとう）" value="${esc(UI.sq)}" autocomplete="off">`;
+  h += `<div class="csub" style="margin:4px 0 8px">押すと予定の一覧、長押し（パソコンは右クリック）ですぐ予約を入れられます</div>`;
   h += `<div id="sres">${studentPicker(UI.sq, UI.krow, UI.mineOnly && isTeacherLogin(), 'sp')}</div>`;
   return h + '</div>';
+}
+// 活動中のグループ（数が少ないので、探さずに全部並べる）。先生のログインでは、メインの先生が自分のグループを先に出す
+function activeGroups() {
+  const mine = g => isTeacherLogin() && g.teachers.includes(UI.login);
+  return GROUPS.filter(g => g.active).sort((a, b) => mine(b) - mine(a));
+}
+function groupList() {
+  const gs = activeGroups();
+  if (!gs.length) return '';
+  return `<div class="sec" style="margin-top:0">グループ</div><div class="slist" style="margin-bottom:12px">${gs.map(g => `<button class="sbtn" data-sp="g${g.id}" title="${QUICK_TIP}">${esc(g.name)}` +
+    `${isTeacherLogin() && g.teachers.includes(UI.login) ? ' <span class="me">自分</span>' : ''}</button>`).join('')}</div>` +
+    `<div class="sec">生徒</div>`;
 }
 function bindStudentSearch() {
   const q = $('#sq');
@@ -823,10 +847,13 @@ function openEditor(init) {
   const t = init && init.type || 'lesson';
   D = {
     type: t, date: UI.view === 'my' ? UI.myDate : UI.date, start: 600, len: 30, allDay: false, rooms: ['R1'], teachers: isTeacherLogin() ? [UI.login] : [],
-    studentId: null, group: '', title: '', place: '', memo: '', repeat: 'none', count: 8, applySeries: false,
+    studentId: null, groupId: '', group: '', title: '', place: '', memo: '', repeat: 'none', count: 8, applySeries: false,
     sq: '', krow: '', mineOnly: isTeacherLogin(), editing: null, makeupOf: null, seriesId: null,
     // 入れ方：dates＝日にちを選ぶ / weekly＝曜日で決める（1年分など）
-    mode: 'dates', wks: [1, 2, 3, 4, 5], untilKind: 'fy', until: '', cont: null, ov: {}, yOpen: null, ...init,
+    mode: 'dates', wks: [1, 2, 3, 4, 5], untilKind: 'fy', until: '', cont: null, ov: {}, yOpen: null,
+    // 選べる種類：all＝すべて / fixed＝変えない / other＝ほかの予定（先生練習から教室の休みまで）だけ。
+    // lockSubject：生徒・グループを変えない（生徒・グループの画面から開いたとき）
+    types: 'all', lockSubject: false, ...init,
   };
   normalizeDraft();
   // 回ごとの日時・部屋・先生（rows）。今選んでいる回（cur）の値は D.date・D.start などに出しておく
@@ -956,7 +983,7 @@ function draftEvent() {
   const e = {
     type: D.type, date: D.date, allDay: !!D.allDay, start: D.allDay ? DAY_START : D.start, len: D.allDay ? DAY_END - DAY_START : D.len,
     rooms: [...D.rooms], teachers: [...D.teachers], studentId: T.student ? D.studentId : null,
-    group: T.group ? D.group.trim() : '', title: T.title ? D.title.trim() : '', place: T.place ? D.place.trim() : '', memo: D.memo.trim(),
+    groupId: T.group ? D.groupId : '', group: T.group && GMAP.has(D.groupId) ? GMAP.get(D.groupId).name : '', title: T.title ? D.title.trim() : '', place: T.place ? D.place.trim() : '', memo: D.memo.trim(),
   };
   if (D.editing) e.id = D.editing;
   return e;
@@ -1007,7 +1034,7 @@ function validate() {
   const [f, t] = draftSpan();
   if (!needForDraft(f, t)) return failedRecently() ? '予定を読み込めませんでした。閉じてもう一度開いてください' : '予定を読み込んでいます…';
   if (T.student && !D.studentId) return '生徒を選んでください';
-  if (T.group && !D.group.trim()) return 'グループ名を入れてください';
+  if (T.group && !GMAP.has(D.groupId)) return 'グループを選んでください';
   if (T.rooms === 'one' || T.rooms === 'multi') if (!D.rooms.length) return '部屋を選んでください';
   if (T.teachers === 'mainsub' && !D.teachers.length) return 'メインの先生を選んでください';
   if (T.teachers === 'mainsub' && useRows() && draftEvents().some(e => !e.teachers.length)) return '先生を選んでいない回があります';
@@ -1068,7 +1095,8 @@ const lenLabel = l => l >= 60 ? (l / 60 | 0) + '時間' + (l % 60 ? l % 60 + '�
 function miniCal() {
   const f = pd(D.calM), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0)), d0 = today();
   const other = new Set(useRows() ? D.rows.filter((r, i) => i !== D.cur).map(r => r.date) : []);
-  const has = new Set(D.studentId ? S.events.filter(e => e.studentId === D.studentId && e.status !== 'cancel' && e.id !== D.editing).map(e => e.date) : []);
+  const gid = TYPES[D.type].group ? D.groupId : '', who = D.studentId ? 'この生徒' : 'このグループ';
+  const has = new Set(D.studentId || gid ? S.events.filter(e => (D.studentId ? e.studentId === D.studentId : e.type === 'group' && e.groupId === gid) && e.status !== 'cancel' && e.id !== D.editing).map(e => e.date) : []);
   let h = `<div class="cal"><div class="calh"><button class="btn sq" data-e="cal-1">‹</button><b>${f.getFullYear()}年${f.getMonth() + 1}月</b><button class="btn sq" data-e="cal+1">›</button></div>
     <div class="calg">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<span>${w}</span>`).join('')}`;
   for (let d = mondayOf(D.calM); d <= last; d = addDays(d, 1)) {
@@ -1078,26 +1106,28 @@ function miniCal() {
     h += `<button class="${cls}" data-e="pick" data-v="${d}"${hol || cl ? ` title="${esc(hol || cl)}"` : ''}>${pd(d).getDate()}</button>`;
   }
   h += `</div>`;
-  h += `<div class="csub" style="margin-top:4px">赤：日曜・祝日　斜線：教室の休み${has.size ? '　●：この生徒の予約がある日' : ''}${other.size ? '　点線：ほかの回' : ''}</div>`;
+  h += `<div class="csub" style="margin-top:4px">赤：日曜・祝日　斜線：教室の休み${has.size ? `　●：${who}の予約がある日` : ''}${other.size ? '　点線：ほかの回' : ''}</div>`;
   return h + `</div>`;
 }
 function renderEditor(first) {
   const T = TYPES[D.type], panel = $('#panel');
   const oldBody = panel.querySelector('.sbody'), sc = !first && oldBody ? oldBody.scrollTop : 0;
   let h = `<div class="shead"><h2>${D.editing ? '予定を変更' : D.makeupOf ? '振替を入れる' : '予約を入れる'}</h2><button class="iconbtn" data-e="close" aria-label="閉じる">✕</button></div><div class="sbody">`;
-  h += `<div class="fld"><div class="opts">${Object.entries(TYPES).map(([k, t]) => `<button class="opt${D.type === k ? ' on' : ''}" data-e="type" data-v="${k}">${t.label}</button>`).join('')}</div></div>`;
+  const choices = D.types === 'fixed' ? [] : D.types === 'other' ? OTHER_TYPES : Object.keys(TYPES);
+  if (choices.length) h += `<div class="fld"><div class="opts">${choices.map(k => `<button class="opt${D.type === k ? ' on' : ''}" data-e="type" data-v="${k}">${TYPES[k].label}</button>`).join('')}</div></div>`;
+  else h += `<div class="fld"><span class="lab">${esc(T.label)}</span></div>`;
   if (T.student) {
     h += `<div class="fld"><span class="lab">生徒</span>`;
     if (D.studentId) {
       const n = nextFutureOfStudent(D.studentId);
-      h += `<div class="picked"><b>${esc(sName(D.studentId))}</b><button class="btn small" data-e="clearS">変える</button></div>` +
+      h += `<div class="picked"><b>${esc(sName(D.studentId))}</b>${D.lockSubject ? '' : '<button class="btn small" data-e="clearS">変える</button>'}</div>` +
         (n ? `<div class="csub" style="margin-top:4px">次の予約：${md(n.date)} ${hm(n.start)} ${esc(roomsText(n.rooms))}（${esc(evWho(n))}）</div>` : `<div class="csub" style="margin-top:4px">これからの予約はまだありません</div>`);
     } else {
       h += `<input class="inp wide" data-f="sq" type="search" placeholder="名前・ふりがなで探す" value="${esc(D.sq)}" autocomplete="off"><div id="epick">${studentPicker(D.sq, D.krow, D.mineOnly, 'ep')}</div>`;
     }
     h += `</div>`;
   }
-  if (T.group) h += `<div class="fld"><label>グループ名</label><input class="inp wide" data-f="group" list="groups" value="${esc(D.group)}" placeholder="例：アマービレ"><datalist id="groups">${[...new Set(S.events.filter(e => e.group).map(e => e.group))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>`;
+  if (T.group) h += groupField();
   if (T.title) h += `<div class="fld"><label>${esc(T.titleLabel || '名前')}</label><input class="inp wide" data-f="title" value="${esc(D.title)}" placeholder="${esc(T.titleHint || T.label)}"></div>`;
   if (T.place) h += `<div class="fld"><label>場所・内容</label><input class="inp wide" data-f="place" value="${esc(D.place)}" placeholder="例：中央公民館"></div>`;
   const rows = useRows(), weekly = useWeekly();
@@ -1156,6 +1186,21 @@ function renderEditor(first) {
   panel.querySelector('.sbody').scrollTop = sc;
   updateCheck();
 }
+// 「ほかの予定を入れる」で選べる種類（レッスン・グループ・体験は、生徒の画面から入れる）
+const OTHER_TYPES = Object.keys(TYPES).filter(k => !['lesson', 'group', 'trial'].includes(k));
+// 予定から開くとき（次回・振替・変更）に選べる種類：ほかの予定どうしでは変えられ、レッスン・グループ・体験は変えない
+const typesFor = type => OTHER_TYPES.includes(type) ? 'other' : 'fixed';
+// グループはグループシートの一覧から選ぶ（終了したグループは、その予定を直すときだけ出す）
+function groupField() {
+  const cur = GMAP.get(D.groupId), gs = activeGroups();
+  if (D.lockSubject && cur) return `<div class="fld"><span class="lab">グループ</span><div class="picked"><b>${esc(cur.name)}</b></div></div>`;
+  if (cur && !cur.active) gs.push(cur);
+  let h = `<div class="fld"><span class="lab">グループ</span>`;
+  if (!gs.length) return h + `<div class="msg info">グループがまだありません。予約スプレッドシートの「グループ」シートに足してから、メニューの「最新の予定と生徒を読み直す」を押してください</div></div>`;
+  h += `<div class="opts">${gs.map(g => `<button class="opt${D.groupId === g.id ? ' on' : ''}" data-e="grp" data-v="${g.id}">${esc(g.name)}</button>`).join('')}</div>`;
+  if (!cur && D.group) h += `<div class="csub" style="margin-top:4px">入れたときの名前：「${esc(D.group)}」。一覧から選び直してください</div>`;
+  return h + `</div>`;
+}
 function teacherOpt(t, on, e) {
   const busy = !on && teacherBusy(t.id);
   return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="--cf:${t.fg}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
@@ -1175,7 +1220,7 @@ function nextFutureOfStudent(sid) {
 }
 // 予定をAPIに送るときの形（画面だけで使う項目は送らない）
 const wire = e => ({ id: e.id, type: e.type, date: e.date, start: e.start, len: e.len, allDay: !!e.allDay, rooms: e.rooms, teachers: e.teachers,
-  studentId: e.studentId || null, group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+  studentId: e.studentId || null, groupId: e.groupId || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
 function saveDraft() {
   if (validate() || D.saving) return;
   if (useWeekly()) return saveWeekly();
@@ -1230,6 +1275,8 @@ const TIPS = [
   ['振替', 'お休みにするときに「キャンセルして振替を入れる」を選ぶか、あとで「自分」の「振替が決まっていないレッスン」から入れます。「変更する」で日にちを変えて「振替」を選んでも入ります。'],
   ['削除', '間違えて入れた予定を消すときだけ使います。'],
   ['体験レッスン', '入会前の人は、予定の種類で「体験」を選んで入れます（「生徒」の画面の「＋ 体験を入れる」からも入れられます）。来なかった・取り消しになったときは削除します。'],
+  ['すぐ予約を入れる', '「生徒」の画面で、生徒やグループのボタンを長押し（パソコンは右クリック）すると、予定の一覧を開かずに、すぐ予約を入れられます。'],
+  ['グループレッスン', '「生徒」の画面の上に並んでいるグループを押し、「＋ 予約を入れる」から入れます。グループの追加・名前の変更・終了は、教室が予約スプレッドシートの「グループ」シートで行います。'],
   ['入会した日', '「生徒」の画面の「＋ 新しい生徒を登録」で名前だけ登録し、返信のメールが届いたら「生徒の一覧を読み直す」を押して予約を入れます。住所などはあとで名簿のフォームから入れます。'],
   ['定期の予定を変えるとき', '「変更する」で「この日以降の同じ定期もまとめて変更する」にチェックを入れると、先の回もまとめて変わります。'],
   ['ほかの人が入れた予定が出ないとき', 'メニュー（右上の「⋯」）の「最新の予定と生徒を読み直す」を押します。'],
@@ -1249,7 +1296,7 @@ function saveWeekly() {
   mutate('add', { events }, `${its.length}回分を入れました（${md(f.date)}〜${md(l.date)}）`);
 }
 function nextFrom(e) {
-  openEditor({ type: e.type, date: addDays(e.date, 7), start: e.start, len: e.len, allDay: e.allDay, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+  openEditor({ type: e.type, date: addDays(e.date, 7), start: e.start, len: e.len, allDay: e.allDay, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '', types: typesFor(e.type) });
 }
 
 /* ===== 詳細・キャンセル ===== */
@@ -1287,6 +1334,7 @@ function openDetail(id) {
     h += `<button class="btn" data-e="uncancel" data-v="${e.id}">キャンセルを取り消す</button>`;
   }
   if (e.studentId) h += `<button class="btn" data-e="toStudent" data-v="${e.studentId}">この生徒の予約一覧</button>`;
+  if (e.type === 'group' && GMAP.has(e.groupId)) h += `<button class="btn" data-e="toStudent" data-v="${e.groupId}">このグループの予約一覧</button>`;
   h += `</div></div>`;
   $('#panel').innerHTML = h;
   showSheet();
@@ -1311,7 +1359,7 @@ function doCancel(id, mode) {
   mutate('cancel', { id, reason: CR, makeup: mode === 'none' ? 'none' : 'pending' }, 'キャンセルしました', mode === 'now' ? () => openMakeup(getEv(id)) : null);
 }
 function openMakeup(e) {
-  openEditor({ type: e.type, date: e.date, start: e.start, len: e.len, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, group: e.group || '', memo: '', makeupOf: e.id });
+  openEditor({ type: e.type, date: e.date, start: e.start, len: e.len, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', memo: '', types: 'fixed', makeupOf: e.id });
 }
 
 /* ===== シート・トースト・メニュー ===== */
@@ -1589,8 +1637,40 @@ document.addEventListener('visibilitychange', checkVersion);
 
 /* ===== 操作 ===== */
 function setView(v) { UI.view = v; saveUI(); render(); }
+// 生徒の画面の生徒・グループのボタンを長押し（パソコンは右クリック）すると、予定の一覧を読まずに、すぐ予約の入力を開く。
+// Android は長押しで contextmenu も来るので、先に来たほうだけで開く（lpFired）。開いたあと指を離したときの click は捨てる
+// （指の下に出た予約の入力の背景を押したことになって、閉じてしまわないように）
+function quickNew(id) {
+  if (GMAP.has(id)) { openEditor({ type: 'group', groupId: id, date: today(), types: 'fixed', lockSubject: true }); suggestForGroup(id); }
+  else { openEditor({ studentId: id, date: today(), types: 'fixed', lockSubject: true }); suggestFromHistory(id); }
+  renderEditor();
+}
+let lpTimer = null, lpFired = false;
+const quickTarget = t => t.closest('#main [data-sp^="s"],#main [data-sp^="g"]');
+document.addEventListener('contextmenu', ev => {
+  const sp = quickTarget(ev.target);
+  if (!sp) return;
+  ev.preventDefault();
+  clearTimeout(lpTimer);
+  if (!lpFired) { lpFired = true; quickNew(sp.dataset.sp.slice(1)); }
+});
+document.addEventListener('pointerdown', ev => {
+  lpFired = false;
+  clearTimeout(lpTimer);
+  const sp = ev.pointerType !== 'mouse' && quickTarget(ev.target);
+  if (!sp) return;
+  const x0 = ev.clientX, y0 = ev.clientY;
+  const stop = e => {
+    if (e.type === 'pointermove' && Math.hypot(e.clientX - x0, e.clientY - y0) < 10) return;
+    clearTimeout(lpTimer);
+    ['pointermove', 'pointerup', 'pointercancel'].forEach(k => removeEventListener(k, stop));
+  };
+  ['pointermove', 'pointerup', 'pointercancel'].forEach(k => addEventListener(k, stop));
+  lpTimer = setTimeout(() => { if (lpFired) return; lpFired = true; if (navigator.vibrate) navigator.vibrate(15); quickNew(sp.dataset.sp.slice(1)); }, 500);
+});
 document.addEventListener('click', ev => {
   const t = ev.target;
+  if (lpFired) { lpFired = false; ev.preventDefault(); return; }
   // シートの中
   const se = t.closest('[data-e]');
   if (se && se.closest('#sheet')) { ev.preventDefault(); return sheetAction(se.dataset.e, se.dataset.v, se); }
@@ -1640,8 +1720,9 @@ document.addEventListener('click', ev => {
     case 'sMode': UI.sMode = a.dataset.v; break;
     case 'sMon-1': case 'sMon+1': { const d = pd(UI.sMonth); d.setMonth(d.getMonth() + (act === 'sMon-1' ? -1 : 1)); UI.sMonth = ds(d); break; }
     case 'sMonThis': UI.sMonth = today().slice(0, 8) + '01'; break;
-    case 'newFor': return openEditor({ studentId: a.dataset.id, date: today() });
-    case 'newTrial': return openEditor({ type: 'trial', date: today() });
+    case 'newFor': return quickNew(a.dataset.id);
+    case 'newTrial': return openEditor({ type: 'trial', date: today(), types: 'fixed' });
+    case 'newOther': return openEditor({ type: OTHER_TYPES[0], date: today(), types: 'other' });
     case 'help': return openHelp();
     case 'bExit': if (document.fullscreenElement) document.exitFullscreen(); return setView('day');
     case 'mon-1': case 'mon+1': { const d = pd(UI.month); d.setMonth(d.getMonth() + (act === 'mon-1' ? -1 : 1)); UI.month = ds(d); break; }
@@ -1689,20 +1770,29 @@ document.addEventListener('input', ev => {
   if (!t.closest('#sheet') || !t.dataset.f || !D) return;
   const f = t.dataset.f;
   if (f === 'sq') { D.sq = t.value; $('#epick').innerHTML = studentPicker(D.sq, D.krow, D.mineOnly, 'ep'); return; }
-  if (['title', 'group', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
+  if (['title', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
 });
 function pickerAction(v, st, redraw, isView) {
-  if (v === 'trial') return isView ? openEditor({ type: 'trial', date: today() }) : sheetAction('type', 'trial');
+  if (v === 'trial') return isView ? openEditor({ type: 'trial', date: today(), types: 'fixed' }) : sheetAction('type', 'trial');
   if (v === 'reload') return reloadMaster().then(ok => { if (ok) { toastMsg('生徒の一覧を読み直しました'); redraw(); } });
   if (v === 'mine') { st.mineOnly = !st.mineOnly; }
   else if (v[0] === 'k') { const k = v.slice(1); st.krow = st.krow === k ? '' : k; }
-  else if (v[0] === 's') {
+  else if (v[0] === 's' || v[0] === 'g') {
     const id = v.slice(1);
     if (isView) { UI.sid = id; sidFrom = null; navPush({ sid: id }); return render(); }
     D.studentId = id; D.sq = '';
     if (!D.editing && !D.makeupOf) suggestFromHistory(id);
   }
   redraw();
+}
+// グループを選んだとき：前の回（ログインした先生がメインの回）の先生・伴奏、なければグループシートのメインの先生を入れておく。
+// メインの先生が何人かいるときは、ログインした先生が入っていればその先生、いなければ最初の先生
+function suggestForGroup(id) {
+  const g = GMAP.get(id);
+  const hist = S.events.filter(e => e.type === 'group' && e.groupId === id && (!isTeacherLogin() || tOf(e)[0] === UI.login)).sort((a, b) => a.date < b.date ? 1 : -1)[0];
+  if (hist) D.teachers = [...hist.teachers];
+  else if (g && g.teachers.length) D.teachers = [g.teachers.includes(UI.login) ? UI.login : g.teachers[0]];
+  normalizeDraft();
 }
 // 生徒を選んだとき、その生徒のいつもの先生・伴奏を入れておく（長さは30分のまま）
 function suggestFromHistory(id) {
@@ -1719,7 +1809,7 @@ function sheetAction(e, v, el) {
       if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
       return location.reload();
     case 'open': return openDetail(v);
-    case 'edit': { const x = getEv(v); return openEditor({ ...JSON.parse(JSON.stringify(x)), editing: x.id, repeat: 'none', sq: '', krow: '', mineOnly: isTeacherLogin() }); }
+    case 'edit': { const x = getEv(v); return openEditor({ ...JSON.parse(JSON.stringify(x)), editing: x.id, repeat: 'none', sq: '', krow: '', mineOnly: isTeacherLogin(), types: typesFor(x.type) }); }
     case 'nextOf': return nextFrom(getEv(v));
     case 'cancel': return openCancel(v);
     case 'cr': CR = v; return openCancel.redraw();
@@ -1760,6 +1850,7 @@ function sheetAction(e, v, el) {
       if (TYPES[v].teachers === 'mainsub' && !D.teachers.length && isTeacherLogin()) D.teachers = [UI.login];
       normalizeDraft(); break;
     case 'clearS': D.studentId = null; break;
+    case 'grp': D.groupId = v; if (!D.editing && !D.makeupOf) suggestForGroup(v); break;
     case 'start': D.start = +v; normalizeDraft(); break;
     case 'len': D.len = +v; normalizeDraft(); break;
     case 'room':
