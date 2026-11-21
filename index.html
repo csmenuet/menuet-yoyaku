@@ -206,6 +206,11 @@ a.btn{color:inherit;text-decoration:none}
 .calg button.oth{border:2px dashed var(--accent)}
 .calg button.has::after{content:'';position:absolute;left:50%;bottom:3px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--ok)}
 .calg button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.tgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;max-width:340px}
+.tgrid button{height:36px;padding:0;border:1px solid var(--line);background:var(--panel);border-radius:8px;color:var(--ink);font-variant-numeric:tabular-nums}
+.tgrid button.busy{opacity:.45;text-decoration:line-through}
+.tgrid button:disabled{opacity:.25}
+.tgrid button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .kv{display:grid;grid-template-columns:84px 1fr;gap:6px 10px;margin-top:12px}
 .kv dt{color:var(--sub);font-size:12px;padding-top:2px}
 .kv dd{margin:0}
@@ -1111,14 +1116,19 @@ function renderEditor(first) {
   if (T.allDay && !T.onlyAllDay) h += `<div class="fld"><label><input type="checkbox" data-f="allDay"${D.allDay ? ' checked' : ''}> 終日（9:00〜21:00）</label></div>`;
   if (!D.allDay) {
     const fits = l => D.start + Math.ceil(l / SLOT) * SLOT <= DAY_END;
-    const starts = range(DAY_START, DAY_END - SLOT).map(m => `<option value="${m}"${m === D.start ? ' selected' : ''}>${hm(m)}</option>`).join('');
+    // 時刻はマス目から1回で選ぶ。部屋・先生がぶつかる時刻は薄く、21:00を超える時刻は押せない
+    const ign = D.editing ? new Set([D.editing]) : null, base = draftEvent();
+    const starts = range(DAY_START, DAY_END - SLOT).map(m => {
+      const out = m + Math.ceil(D.len / SLOT) * SLOT > DAY_END, busy = !out && m !== D.start && hard(conflictsOf({ ...base, start: m }, ign)).length > 0;
+      return `<button class="${[m === D.start && 'on', busy && 'busy'].filter(Boolean).join(' ')}" data-e="start" data-v="${m}"${out ? ' disabled' : ''}>${hm(m)}</button>`;
+    }).join('');
     const lens = [...(D.type === 'lesson' ? [45] : []), ...range(SLOT, DAY_END - DAY_START)].sort((a, b) => a - b).filter(fits);
+    // レッスンはボタンの長さだけ（前から入っている別の長さを直すときだけ、セレクタも出す）
     const quick = (D.type === 'lesson' ? [30, 45, 60, 90] : [30, 60, 90, 120]).filter(fits);
-    h += `<div class="fld"><span class="lab">時間</span><div class="row">
-      <button class="btn sq" data-e="t-30">‹</button><select class="inp" data-f="start">${starts}</select><button class="btn sq" data-e="t+30">›</button>
-      <span>〜 ${hm(D.start + D.len)}${D.len % SLOT ? `（枠は${hm(endOf(D))}まで押さえます）` : ''}</span></div>
+    h += `<div class="fld"><span class="lab">時間　<b style="color:var(--ink);font-size:14px">${hm(D.start)}〜${hm(D.start + D.len)}</b>${D.len % SLOT ? `（枠は${hm(endOf(D))}まで押さえます）` : ''}</span>
+      <div class="tgrid">${starts}</div>
       <div class="opts" style="margin-top:6px">${quick.map(l => `<button class="opt${D.len === l ? ' on' : ''}" data-e="len" data-v="${l}">${l}分</button>`).join('')}
-      <select class="inp" data-f="len">${lens.map(l => `<option value="${l}"${l === D.len ? ' selected' : ''}>${lenLabel(l)}</option>`).join('')}</select></div></div>`;
+      ${D.type === 'lesson' && quick.includes(D.len) ? '' : `<select class="inp" data-f="len">${lens.map(l => `<option value="${l}"${l === D.len ? ' selected' : ''}>${lenLabel(l)}</option>`).join('')}</select>`}</div></div>`;
   }
   if (T.rooms !== 'none') {
     const multi = T.rooms !== 'one';
@@ -1657,8 +1667,7 @@ document.addEventListener('change', ev => {
   const t = ev.target;
   if (t.closest('#sheet') && t.dataset.f && D) {
     const f = t.dataset.f;
-    if (f === 'start') { D.start = +t.value; normalizeDraft(); }
-    else if (f === 'len' || f === 'count') { D[f] = +t.value; normalizeDraft(); }
+    if (f === 'len' || f === 'count') { D[f] = +t.value; normalizeDraft(); }
     else if (f === 'allDay' || f === 'applySeries') D[f] = t.checked;
     else if (f === 'until') { if (t.value) { D.until = t.value; D.untilKind = 'custom'; } }
     else if (f === 'ovDate' || f === 'ovStart' || f === 'ovRoom') {
@@ -1751,7 +1760,7 @@ function sheetAction(e, v, el) {
       if (TYPES[v].teachers === 'mainsub' && !D.teachers.length && isTeacherLogin()) D.teachers = [UI.login];
       normalizeDraft(); break;
     case 'clearS': D.studentId = null; break;
-    case 't-30': case 't+30': { const s = D.start + +e.slice(1); if (s >= DAY_START && s + SLOT <= DAY_END) { D.start = s; normalizeDraft(); } break; }
+    case 'start': D.start = +v; normalizeDraft(); break;
     case 'len': D.len = +v; normalizeDraft(); break;
     case 'room':
       if (TYPES[D.type].rooms === 'one') D.rooms = [v];
