@@ -73,7 +73,7 @@ function render() {
   const last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
   // 1日を含む週から、月末を含む週まで（前後の月の日は薄く出す）
   const weeks = [];
-  for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
+  for (let ws = sundayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
   shownWeeks = weeks.length;
   main.innerHTML = `<div class="mbar bbar"><b class="btitle">${f.getFullYear() !== f0.getFullYear() ? f.getFullYear() + '年' : ''}${f.getMonth() + 1}月のレッスン予定</b>` +
     (offset ? `<span class="bhint">今月ではありません（Enterで今月に戻る）</span>` : '') +
@@ -85,12 +85,12 @@ function render() {
   }
   fit();
 }
-// 表示する月の予定を読む（月曜〜日曜の週でそろえて、前後の月の日も含める）
+// 表示する月の予定を読む（日曜〜土曜の週でそろえて、前後の月の日も含める）
 async function refresh() {
   if (!CFG.apiUrl) { problem = '設定（config.js）の apiUrl が空です'; return render(); }
   if (!BKEY) { problem = 'URL の最後に #key=掲示の合言葉 を付けて開いてください'; return render(); }
   const first = shownMonth(), f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
-  const from = mondayOf(first), to = addDays(mondayOf(last), 6);
+  const from = sundayOf(first), to = addDays(sundayOf(last), 6);
   lastFetch = Date.now();
   const my = ++seq;
   try {

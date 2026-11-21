@@ -57,7 +57,8 @@ const pd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y,
 const addDays = (s, n) => { const d = pd(s); d.setDate(d.getDate() + n); return ds(d); };
 const dow = s => pd(s).getDay();
 const today = () => ds(new Date());
-const mondayOf = s => addDays(s, -((dow(s) + 6) % 7));
+// 週は日曜から土曜まで（2026-11-22、先生の希望で月曜始まりから変えた）
+const sundayOf = s => addDays(s, -dow(s));
 const diffDays = (a, b) => Math.round((pd(b) - pd(a)) / 86400000);
 const hm = m => `${Math.floor(m / 60)}:${pad(m % 60)}`;
 const md = s => { const d = pd(s); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`; };
@@ -168,7 +169,7 @@ function shortTitle(e) {
 
 /* ===== 月の全部屋（操作用の「月」と掲示で共通） ===== */
 const legend = () => `<span class="mleg">${activeTeachers().map(t => `<span style="--c:${t.bg};--cf:${t.fg}">${esc(t.name)}</span>`).join('')}</span>`;
-// 週（月曜の日付）の並びを、日ごとの枠で描く。dim(d) が真の日は薄くする
+// 週（日曜の日付）の並びを、日ごとの枠で描く。dim(d) が真の日は薄くする
 // noNow：現在時刻の線を引かない（掲示）
 function monthGrid(weeks, dim, fold, style, key, noNow) {
   const R = ROOMS.length;
@@ -177,12 +178,12 @@ function monthGrid(weeks, dim, fold, style, key, noNow) {
   // 2列は最小幅を小さくして、横幅1200px程度の画面でも横スクロールなしで収める（広い画面では列が広がって名字が全部見える）
   const mcol = fold ? 16 : 26, mcolSun = fold ? 6 : 14;
   let h = `<div class="mwrap" data-k="${key}" style="--mhd:14px;--mg:14px;--mcol:${mcol}px;--mcolsun:${mcolSun}px;${style}">`;
-  // 時刻の目盛り。1列：月・水・金・日の前に置く。
-  // 2列：月の左に9〜14時、火・木・土の右に15〜20時と次の日の9〜14時、日の右に15〜20時を置き、目盛りをその時間の列の隣にする
-  const seq = fold ? ['L', 0, 1, 'R', 'L', 2, 3, 'R', 'L', 4, 5, 'R', 'L', 6, 'R'] : ['G', 0, 1, 'G', 2, 3, 'G', 4, 5, 'G', 6];
+  // 時刻の目盛り（0が日曜）。1列：日・月・水・金の前に置く。
+  // 2列：日・月・水・金の左に9〜14時、日・火・木・土の右に15〜20時を置き、目盛りをその時間の列の隣にする
+  const seq = fold ? ['L', 0, 'R', 'L', 1, 2, 'R', 'L', 3, 4, 'R', 'L', 5, 6, 'R'] : ['G', 0, 'G', 1, 2, 'G', 3, 4, 'G', 5, 6];
   const nGut = seq.filter(x => typeof x === 'string').length;
   // 日の列は最小幅（列数×--mcol）を守りつつ、画面の幅いっぱいに広げる。日曜はレッスンが少ないので細くする
-  const cols = seq.map(x => typeof x === 'string' ? 'var(--mg)' : x === 6 ? `minmax(calc(${C} * var(--mcolsun)), .45fr)` : `minmax(calc(${C} * var(--mcol)), 1fr)`);
+  const cols = seq.map(x => typeof x === 'string' ? 'var(--mg)' : x === 0 ? `minmax(calc(${C} * var(--mcolsun)), .45fr)` : `minmax(calc(${C} * var(--mcol)), 1fr)`);
   const minW = `calc(${nGut} * var(--mg) + ${6 * C} * var(--mcol) + ${C} * var(--mcolsun) + 33px)`;
   const gutter = kind => {
     let g = `<div class="mgut${kind === 'R' ? ' gr' : ''}" style="grid-template-rows:var(--mhd) repeat(${NS},var(--mrow))">`;

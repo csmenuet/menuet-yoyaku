@@ -244,7 +244,7 @@ a.btn{color:inherit;text-decoration:none}
 .tmwrap{flex:1;min-height:0;overflow:auto;padding:8px 10px;background:var(--panel)}
 .ptitle{font-size:16px;font-weight:700}
 .psum{font-size:12px;color:var(--sub);margin:2px 0 6px}
-.tmweek{display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) minmax(0,.75fr);border-left:1px solid var(--line)}
+.tmweek{display:grid;grid-template-columns:minmax(0,.75fr) repeat(6,minmax(0,1fr));border-left:1px solid var(--line)}
 .tmweek>div{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0;padding:2px 3px 4px;min-height:64px}
 .tmhead{border-top:1px solid var(--line)}
 .tmhead>div{min-height:0;text-align:center;font-weight:700;font-size:12px;background:var(--bg);padding:2px}
@@ -336,7 +336,7 @@ const KANA_ROWS = [
 ];
 
 /* ===== 画面の状態 ===== */
-const UI = { view: 'my', login: null, date: today(), myDate: today(), week: mondayOf(today()), wf: 'ALL', hl: '', sq: '', krow: '', mineOnly: true, sid: null, wfree: false, mf: 'ALL', sMode: 'future', sMonth: today().slice(0, 8) + '01', month: today().slice(0, 8) + '01', mrow: 7, mfold: true };
+const UI = { view: 'my', login: null, date: today(), myDate: today(), week: sundayOf(today()), wf: 'ALL', hl: '', sq: '', krow: '', mineOnly: true, sid: null, wfree: false, mf: 'ALL', sMode: 'future', sMonth: today().slice(0, 8) + '01', month: today().slice(0, 8) + '01', mrow: 7, mfold: true };
 const UKEY = 'menuet-yoyaku-ui';
 try { const u = JSON.parse(localStorage.getItem(UKEY) || '{}'); if (u.view) UI.view = u.view; if (u.wf) UI.wf = u.wf; if ([7, 10, 13].includes(u.mrow)) UI.mrow = u.mrow; if (typeof u.mfold === 'boolean') UI.mfold = u.mfold; if (u.mf) UI.mf = u.mf; } catch (e) { }
 // 最初に開くタブを URL で指定できる（?tab=student など）。ホーム画面にタブごとのアイコンを置くため。
@@ -602,7 +602,7 @@ function renderMonth() {
     h += `${[[7, '小'], [10, '中'], [13, '大']].map(([v, l]) => `<button class="opt${UI.mrow === v ? ' on' : ''}" data-act="mSize" data-v="${v}">${l}</button>`).join('')}
     <button class="opt${fold ? '' : ' on'}" data-act="mFold" data-v="0" title="1日を1列で">1列</button><button class="opt${fold ? ' on' : ''}" data-act="mFold" data-v="1" title="1日を9〜15時と15〜21時の2列で">2列</button></div>`;
     const weeks = [];
-    for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
+    for (let ws = sundayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
     return h + monthGrid(weeks, d => d < first || d > last, fold, `--mrow:${UI.mrow}px`, 'month' + first + fold);
   }
   h += `<button class="btn" data-act="print">印刷</button></div>`;
@@ -632,13 +632,13 @@ function teacherMonth(first, last, tid) {
   let h = `<div class="tmwrap" data-k="tmonth${first}${tid}">
     <div class="ptitle">${f.getFullYear()}年${f.getMonth() + 1}月　${esc(t.full)}先生のレッスン予定</div>
     <div class="psum">レッスン ${main}コマ・伴奏 ${acc}コマ${trial ? `・体験 ${trial}回` : ''}（計${mins / 60 | 0}時間${mins % 60 ? mins % 60 + '分' : ''}）　印刷日 ${md(today())}</div>
-    <div class="tmweek tmhead">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<div>${w}</div>`).join('')}</div>`;
-  for (let ws = mondayOf(first); ws <= last; ws = addDays(ws, 7)) {
+    <div class="tmweek tmhead">${WD.map(w => `<div>${w}</div>`).join('')}</div>`;
+  for (let ws = sundayOf(first); ws <= last; ws = addDays(ws, 7)) {
     h += `<div class="tmweek">`;
     for (let i = 0; i < 7; i++) {
       const d = addDays(ws, i), out = d < first || d > last;
       // 薄くした前後の月の日は、予定を出さない（印刷して紛らわしくないように）
-      h += `<div class="tmday${out ? ' out' : ''}${d === today() ? ' today' : ''}${i === 6 ? ' sun' : ''}${!out && isRedDay(d) ? ' red' : ''}"><div class="dn" data-act="gotoDay" data-d="${d}">${pd(d).getDate()}${!out && (holidayName(d) || closedName(d)) ? `<small>${esc(holidayName(d) || closedName(d))}</small>` : ''}</div>${out ? '' : mine(d).map(line).join('')}</div>`;
+      h += `<div class="tmday${out ? ' out' : ''}${d === today() ? ' today' : ''}${i === 0 ? ' sun' : ''}${!out && isRedDay(d) ? ' red' : ''}"><div class="dn" data-act="gotoDay" data-d="${d}">${pd(d).getDate()}${!out && (holidayName(d) || closedName(d)) ? `<small>${esc(holidayName(d) || closedName(d))}</small>` : ''}</div>${out ? '' : mine(d).map(line).join('')}</div>`;
     }
     h += `</div>`;
   }
@@ -1098,8 +1098,8 @@ function miniCal() {
   const gid = TYPES[D.type].group ? D.groupId : '', who = D.studentId ? 'この生徒' : 'このグループ';
   const has = new Set(D.studentId || gid ? S.events.filter(e => (D.studentId ? e.studentId === D.studentId : e.type === 'group' && e.groupId === gid) && e.status !== 'cancel' && e.id !== D.editing).map(e => e.date) : []);
   let h = `<div class="cal"><div class="calh"><button class="btn sq" data-e="cal-1">‹</button><b>${f.getFullYear()}年${f.getMonth() + 1}月</b><button class="btn sq" data-e="cal+1">›</button></div>
-    <div class="calg">${['月', '火', '水', '木', '金', '土', '日'].map(w => `<span>${w}</span>`).join('')}`;
-  for (let d = mondayOf(D.calM); d <= last; d = addDays(d, 1)) {
+    <div class="calg">${WD.map(w => `<span>${w}</span>`).join('')}`;
+  for (let d = sundayOf(D.calM); d <= last; d = addDays(d, 1)) {
     if (d < D.calM) { h += '<span></span>'; continue; }
     const hol = holidayName(d), cl = closedName(d);
     const cls = [d === D.date && 'on', other.has(d) && 'oth', has.has(d) && 'has', d === d0 && 'today', d < d0 && 'past', dow(d) === 0 && 'sun', hol && 'hol', cl && 'cls'].filter(Boolean).join(' ');
@@ -1142,7 +1142,7 @@ function renderEditor(first) {
     }).join('')}</div>` +
       (D.rows.length < MAX_ROWS ? `<div class="opts" style="margin-top:6px"><button class="opt" data-e="addRow" data-v="week">＋ 1週後</button><button class="opt" data-e="addRow" data-v="cont">＋ 同じ日に続けて</button></div>` : '') + `</div>`;
   }
-  h += `<div class="fld"><span class="lab">${weekly ? '始める日' : '日にち'}${rows && D.rows.length > 1 ? `（${D.cur + 1}回目）` : ''}　<b style="color:var(--ink);font-size:14px">${md(D.date)}${weekly ? `から 毎週${WD[dow(D.date)]}曜` : ''}</b></span>${(needForDraft(mondayOf(D.calM), addDays(mondayOf(D.calM), 41)), miniCal())}</div>`;
+  h += `<div class="fld"><span class="lab">${weekly ? '始める日' : '日にち'}${rows && D.rows.length > 1 ? `（${D.cur + 1}回目）` : ''}　<b style="color:var(--ink);font-size:14px">${md(D.date)}${weekly ? `から 毎週${WD[dow(D.date)]}曜` : ''}</b></span>${(needForDraft(sundayOf(D.calM), addDays(sundayOf(D.calM), 41)), miniCal())}</div>`;
   if (T.allDay && !T.onlyAllDay) h += `<div class="fld"><label><input type="checkbox" data-f="allDay"${D.allDay ? ' checked' : ''}> 終日（9:00〜21:00）</label></div>`;
   if (!D.allDay) {
     const fits = l => D.start + Math.ceil(l / SLOT) * SLOT <= DAY_END;
@@ -1587,7 +1587,7 @@ function viewRange() {
   if (UI.view === 'day') return [UI.date, UI.date];
   if (UI.view === 'week') return [UI.week, addDays(UI.week, 6)];
   if (UI.view === 'my') return [UI.myDate, UI.myDate];
-  if (UI.view === 'month') { const f = pd(UI.month), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0)); return [mondayOf(UI.month), addDays(mondayOf(last), 6)]; }
+  if (UI.view === 'month') { const f = pd(UI.month), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0)); return [sundayOf(UI.month), addDays(sundayOf(last), 6)]; }
   return null;
 }
 // 予約の入力で、要る期間が読み込まれていなければ読み込んで描き直す（読み込み中は false）
@@ -1706,7 +1706,7 @@ document.addEventListener('click', ev => {
     case 'dayToday': UI.date = today(); break;
     case 'week-1': UI.week = addDays(UI.week, -7); break;
     case 'week+1': UI.week = addDays(UI.week, 7); break;
-    case 'weekThis': UI.week = mondayOf(today()); break;
+    case 'weekThis': UI.week = sundayOf(today()); break;
     case 'gotoDay': UI.date = a.dataset.d; UI.view = 'day'; break;
     case 'wf': UI.wf = a.dataset.v; saveUI(); break;
     case 'wfree': UI.wfree = !UI.wfree; break;
