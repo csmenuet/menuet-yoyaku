@@ -168,6 +168,13 @@ a.btn{color:inherit;text-decoration:none}
 .msg.warn{background:var(--warnbg);color:var(--warn)}
 .msg.ok{background:var(--okbg);color:var(--ok);font-weight:700}
 .msg.info{background:var(--line2);color:var(--sub)}
+.tips{margin:0}
+.tips dt{font-weight:700;margin-top:10px}
+.tips dt:first-child{margin-top:0}
+.tips dd{margin:2px 0 0;font-size:13px;color:var(--sub)}
+.tipsbox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.tipsbox summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent)}
+.tipsbox[open] summary{margin-bottom:8px}
 .ritem{display:flex;border:1px solid var(--line);border-radius:10px;margin-bottom:4px;background:var(--panel)}
 .ritem.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accentbg)}
 .rmain{flex:1;min-width:0;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;color:var(--ink)}
@@ -285,6 +292,7 @@ a.btn{color:inherit;text-decoration:none}
 <header class="top">
   <div class="brand">メヌエット<span>レッスン予約</span></div>
   <button id="who" class="who" data-act="login"></button>
+  <button class="iconbtn" data-act="help" aria-label="使い方のポイント">？</button>
   <button class="iconbtn" data-act="menu" aria-label="メニュー">⋯</button>
 </header>
 <main id="main"></main>
@@ -637,6 +645,7 @@ function renderMy() {
     <span class="grow"></span>
     <button class="btn pri" data-act="new">＋ 予約を入れる</button>
   </div><div class="wrap">`;
+  h += `<details class="tipsbox"${UI.tipsOpen ? ' open' : ''}><summary>使い方のポイント（お休み・振替・削除・体験など）</summary>${tipsList()}</details>`;
   h += `<div class="sec">${esc(tFull(me))}先生のこの日の予定</div>`;
   if (!mine.length) h += `<div class="empty-note">この日の予定はありません</div>`;
   for (const e of mine) {
@@ -695,7 +704,9 @@ function studentMatches(q, krow, mineOnly) {
 }
 // 今日入会した生徒が見つからないとき：名簿の新規登録フォームで登録してから、生徒の一覧を読み直す
 function newStudentNote(act) {
-  return `<div class="csub" style="margin-top:8px">新しく入会した生徒は、${REG_URL ? `<a href="${esc(REG_URL)}" target="_blank" rel="noopener">名簿の新規登録フォーム</a>` : '名簿の新規登録フォーム'}で登録し、返信のメールが届いてから読み直してください。` +
+  return `<div class="csub" style="margin-top:8px">入会前の人（体験レッスン）は、予定の種類で「体験」を選んで入れてください。` +
+    `<div style="margin-top:6px"><button class="btn" data-${act}="trial">体験として入れる</button></div></div>` +
+    `<div class="csub" style="margin-top:8px">新しく入会した生徒は、${REG_URL ? `<a href="${esc(REG_URL)}" target="_blank" rel="noopener">名簿の新規登録フォーム</a>` : '名簿の新規登録フォーム'}で登録し、返信のメールが届いてから読み直してください。` +
     `<div style="margin-top:6px"><button class="btn" data-${act}="reload">生徒の一覧を読み直す</button></div></div>`;
 }
 function studentPicker(q, krow, mineOnly, act) {
@@ -788,8 +799,10 @@ function renderStudent() {
     }
     return h + '</div>';
   }
-  // 入会したその場で登録できるよう、名簿の新規登録フォームをいつでも開けるようにしておく（見つからないときの案内とは別）
-  if (REG_URL) h += `<div class="row" style="margin-bottom:8px"><span class="grow"></span><a class="btn" href="${esc(REG_URL)}" target="_blank" rel="noopener">＋ 新しい生徒を登録</a></div>`;
+  // 入会前の人（体験）は生徒の一覧にいないので、ここから体験の予約を入れられるようにする。
+  // 入会したその場で登録できるよう、名簿の新規登録フォームもいつでも開けるようにしておく（見つからないときの案内とは別）
+  h += `<div class="row" style="margin-bottom:8px"><span class="grow"></span><button class="btn" data-act="newTrial">＋ 体験を入れる</button>` +
+    (REG_URL ? `<a class="btn" href="${esc(REG_URL)}" target="_blank" rel="noopener">＋ 新しい生徒を登録</a>` : '') + `</div>`;
   h += `<input class="search" id="sq" type="search" placeholder="名前・ふりがなで探す（例：さとう）" value="${esc(UI.sq)}" autocomplete="off">`;
   h += `<div id="sres">${studentPicker(UI.sq, UI.krow, UI.mineOnly && isTeacherLogin(), 'sp')}</div>`;
   return h + '</div>';
@@ -1165,8 +1178,56 @@ function saveDraft() {
     return mutate('add', { events: okItems.map(it => ({ ...wire(it.ev), series })), makeupOf: D.makeupOf || null },
       `${okItems.length > 1 ? okItems.length + '回分を' : ''}入れました：${md(first.date)} ${evTime(first)}`);
   }
-  mutate('update', { events: okItems.map(it => wire(it.ev)) },
+  const update = () => mutate('update', { events: okItems.map(it => wire(it.ev)) },
     `変更しました${p.items.length > okItems.length ? `（${p.items.length - okItems.length}件はぶつかるため変更していません）` : ''}`);
+  // レッスン・グループの1回だけを別の日に移すときは、生徒が休んだ振替なのか、予定そのものの変更なのかを選んでもらう
+  // （振替なら、元の回をお休みにして振替の予定を入れる。休んだ記録を残すため）
+  const cur = getEv(D.editing);
+  if (cur && (cur.type === 'lesson' || cur.type === 'group') && !cur.makeupOf && !D.applySeries && okItems.length === 1 && first.date !== cur.date) {
+    return openMoveChoice(cur, wire(first), update);
+  }
+  update();
+}
+let MV = null;
+function openMoveChoice(cur, ev, update) {
+  MV = { cur, ev, update, reason: '生徒都合' };
+  drawMoveChoice();
+}
+function drawMoveChoice() {
+  const { cur, ev, reason } = MV;
+  $('#panel').innerHTML = `<div class="shead"><h2>日にちを変えます</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">
+    <div class="ctitle" style="margin-top:10px">${esc(evTitle(cur))}　${md(cur.date)} ${evTime(cur)} → ${md(ev.date)} ${evTime(ev)}</div>
+    <div class="msg info">生徒が休んで別の日に移すときは「振替」を選んでください。${md(cur.date)}はお休みとして記録が残り、${md(ev.date)}がその振替になります。</div>
+    <div class="fld"><span class="lab">お休みの理由</span><div class="opts">${['生徒都合', '先生都合', '教室都合', 'その他'].map(r => `<button class="opt${reason === r ? ' on' : ''}" data-e="mvReason" data-v="${r}">${r}</button>`).join('')}</div></div>
+    <div class="acts"><button class="btn pri" data-e="mvMakeup">振替として入れる</button></div>
+    <div class="msg info" style="margin-top:16px">時間割の組み替えなど、休みではないときは「予定を変える」を選んでください（お休みの記録は残りません）。</div>
+    <div class="acts"><button class="btn" data-e="mvUpdate">予定を変える（休みではない）</button><button class="btn" data-e="mvBack">戻る</button></div></div>`;
+}
+
+// 削除の前に：レッスン・グループは、生徒が休んだのなら削除ではなくお休みにしてもらう
+function openDeleteChoice(x) {
+  $('#panel').innerHTML = `<div class="shead"><h2>削除の前に</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">
+    <div class="ctitle" style="margin-top:10px">${esc(evTitle(x))}　${md(x.date)} ${evTime(x)}</div>
+    <div class="msg warn">生徒が休む・中止になったときは、削除ではなく「お休み」にしてください。お休みにすると休んだ記録が残り、振替も入れられます。</div>
+    <div class="acts"><button class="btn pri" data-e="cancel" data-v="${x.id}">お休みにする</button><button class="btn" data-e="delBack" data-v="${x.id}">戻る</button></div>
+    <div class="csub" style="margin-top:20px">間違えて入れた予定のときだけ、削除してください。削除すると記録は残りません。</div>
+    <div class="acts"><button class="btn danger" data-e="delForce" data-v="${x.id}">間違えて入れたので削除する</button></div></div>`;
+}
+
+// 使い方のポイント（画面からは分かりにくい決まりごと。ヘッダーの「？」と「自分」の画面の上から開く）
+const TIPS = [
+  ['生徒が休むとき', '予定を押して「お休み・キャンセル」にします。削除はしません（休んだ記録が残らないため）。'],
+  ['振替', 'お休みにするときに「キャンセルして振替を入れる」を選ぶか、あとで「自分」の「振替が決まっていないレッスン」から入れます。「変更する」で日にちを変えて「振替」を選んでも入ります。'],
+  ['削除', '間違えて入れた予定を消すときだけ使います。'],
+  ['体験レッスン', '入会前の人は、予定の種類で「体験」を選んで入れます（「生徒」の画面の「＋ 体験を入れる」からも入れられます）。来なかった・取り消しになったときは削除します。'],
+  ['入会した日', '「生徒」の画面の「＋ 新しい生徒を登録」で名前だけ登録し、返信のメールが届いたら「生徒の一覧を読み直す」を押して予約を入れます。住所などはあとで名簿のフォームから入れます。'],
+  ['定期の予定を変えるとき', '「変更する」で「この日以降の同じ定期もまとめて変更する」にチェックを入れると、先の回もまとめて変わります。'],
+  ['ほかの人が入れた予定が出ないとき', 'メニュー（右上の「⋯」）の「最新の予定と生徒を読み直す」を押します。'],
+];
+const tipsList = () => `<dl class="tips">${TIPS.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+function openHelp() {
+  $('#panel').innerHTML = `<div class="shead"><h2>使い方のポイント</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">${tipsList()}</div>`;
+  showSheet();
 }
 // 曜日で決めた回をまとめて入れる。メインのコマと「続けて」のコマは、それぞれ別の定期IDでつなぐ
 function saveWeekly() {
@@ -1379,7 +1440,7 @@ function getToken() {
 }
 // 操作ごとの「処理中」の文。version（数分おきの確かめ）は裏で静かに行うので出さない
 const BUSY_LABEL = { init: 'ログインしています…', events: '予定を読み込んでいます…', student: '予定を読み込んでいます…', log: '読み込んでいます…',
-  add: '保存しています…', update: '保存しています…', cancel: '保存しています…', uncancel: '保存しています…', noMakeup: '保存しています…', delete: '保存しています…' };
+  add: '保存しています…', update: '保存しています…', makeupMove: '保存しています…', cancel: '保存しています…', uncancel: '保存しています…', noMakeup: '保存しています…', delete: '保存しています…' };
 async function api(action, params, label) {
   label = label || BUSY_LABEL[action];
   const done = label ? busyStart(label) : () => { };
@@ -1512,6 +1573,8 @@ async function checkVersion() {
   try { const j = await api('version'); if (j.version !== SV) { SV = j.version; reloadAll(); } } catch (e) { }
 }
 setInterval(checkVersion, 90 * 1000);
+// 「使い方のポイント」を開いたかを覚えておく（予定の読み直しで画面を描き直しても閉じないように）
+document.addEventListener('toggle', ev => { if (ev.target.classList && ev.target.classList.contains('tipsbox')) UI.tipsOpen = ev.target.open; }, true);
 document.addEventListener('visibilitychange', checkVersion);
 
 /* ===== 操作 ===== */
@@ -1568,6 +1631,8 @@ document.addEventListener('click', ev => {
     case 'sMon-1': case 'sMon+1': { const d = pd(UI.sMonth); d.setMonth(d.getMonth() + (act === 'sMon-1' ? -1 : 1)); UI.sMonth = ds(d); break; }
     case 'sMonThis': UI.sMonth = today().slice(0, 8) + '01'; break;
     case 'newFor': return openEditor({ studentId: a.dataset.id, date: today() });
+    case 'newTrial': return openEditor({ type: 'trial', date: today() });
+    case 'help': return openHelp();
     case 'bExit': if (document.fullscreenElement) document.exitFullscreen(); return setView('day');
     case 'mon-1': case 'mon+1': { const d = pd(UI.month); d.setMonth(d.getMonth() + (act === 'mon-1' ? -1 : 1)); UI.month = ds(d); break; }
     case 'monThis': UI.month = today().slice(0, 8) + '01'; break;
@@ -1618,6 +1683,7 @@ document.addEventListener('input', ev => {
   if (['title', 'group', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
 });
 function pickerAction(v, st, redraw, isView) {
+  if (v === 'trial') return isView ? openEditor({ type: 'trial', date: today() }) : sheetAction('type', 'trial');
   if (v === 'reload') return reloadMaster().then(ok => { if (ok) { toastMsg('生徒の一覧を読み直しました'); redraw(); } });
   if (v === 'mine') { st.mineOnly = !st.mineOnly; }
   else if (v[0] === 'k') { const k = v.slice(1); st.krow = st.krow === k ? '' : k; }
@@ -1658,9 +1724,17 @@ function sheetAction(e, v, el) {
     }
     case 'del': case 'delete': {
       const id = v || D.editing, x = getEv(id);
-      if (!confirm(`「${evTitle(x)}」${md(x.date)} を削除しますか？\n（レッスンのお休みは「お休み・キャンセル」を使うと記録が残ります）`)) return;
+      if (x.type === 'lesson' || x.type === 'group') return openDeleteChoice(x);
+      const note = x.type === 'trial' ? '\n（体験は、来なかった・取り消しになったときだけ削除してください。日にちを変えるときは「変更する」を使います）' : '';
+      if (!confirm(`「${evTitle(x)}」${md(x.date)} を削除しますか？${note}`)) return;
       return mutate('delete', { id }, '削除しました');
     }
+    case 'delForce': return mutate('delete', { id: v }, '削除しました');
+    case 'delBack': return D && D.editing === v ? renderEditor() : openDetail(v);
+    case 'mvReason': MV.reason = v; return drawMoveChoice();
+    case 'mvMakeup': return mutate('makeupMove', { id: MV.cur.id, reason: MV.reason, event: MV.ev }, `振替を入れました：${md(MV.ev.date)} ${evTime(MV.ev)}（${md(MV.cur.date)}はお休み）`);
+    case 'mvUpdate': return MV.update();
+    case 'mvBack': return renderEditor();
     case 'toStudent': {
       // すでにその生徒の画面にいるなら、履歴は積まない（戻る1回で一覧に戻れるように）
       const same = UI.view === 'student' && UI.sid === v;
