@@ -676,11 +676,16 @@ function studentMatches(q, krow, mineOnly) {
   list.sort((a, b) => (mine.has(b.id) - mine.has(a.id)) || a.kana.localeCompare(b.kana, 'ja'));
   return { list: list.slice(0, 40), more: Math.max(0, list.length - 40), mine };
 }
+// 今日入会した生徒が見つからないとき：名簿の新規登録フォームで登録してから、生徒の一覧を読み直す
+function newStudentNote(act) {
+  return `<div class="csub" style="margin-top:8px">新しく入会した生徒は、${REG_URL ? `<a href="${esc(REG_URL)}" target="_blank" rel="noopener">名簿の新規登録フォーム</a>` : '名簿の新規登録フォーム'}で登録し、返信のメールが届いてから読み直してください。` +
+    `<div style="margin-top:6px"><button class="btn" data-${act}="reload">生徒の一覧を読み直す</button></div></div>`;
+}
 function studentPicker(q, krow, mineOnly, act) {
   const { list, more, mine } = studentMatches(q, krow, mineOnly);
   let h = `<div class="krow">${isTeacherLogin() ? `<button class="${mineOnly ? 'on' : ''}" data-${act}="mine" style="padding:5px 10px">自分の生徒</button>` : ''}` +
     KANA_ROWS.map(k => `<button class="${krow === k[0] ? 'on' : ''}" data-${act}="k${k[0]}">${k[0]}</button>`).join('') + `</div>`;
-  if (!list.length) return h + `<div class="empty-note">見つかりません${mineOnly ? '（「自分の生徒」を外すと全員から探せます）' : ''}</div>`;
+  if (!list.length) return h + `<div class="empty-note">見つかりません${mineOnly ? '（「自分の生徒」を外すと全員から探せます）' : ''}</div>` + newStudentNote(act);
   h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}">${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
   if (more) h += `<div class="csub" style="margin-top:6px">ほか${more}人。名前か行で絞ってください</div>`;
   return h;
@@ -1300,7 +1305,7 @@ function openMenu() {
   $('#panel').innerHTML = `<div class="shead"><h2>メニュー</h2><button class="iconbtn" data-e="close">✕</button></div><div class="sbody">
     <div class="csub">${esc(loginName())}（${esc(token ? token.email : '')}）でログイン中</div>
     <div class="acts" style="flex-direction:column;align-items:stretch">
-      <button class="btn" data-e="reload">最新の予定を読み直す</button>
+      <button class="btn" data-e="reload">最新の予定と生徒を読み直す</button>
       <button class="btn" data-e="log">変更履歴を見る</button>
       <button class="btn" data-e="logout">ログアウト</button>
     </div></div>`;
@@ -1356,8 +1361,9 @@ function getToken() {
 // 操作ごとの「処理中」の文。version（数分おきの確かめ）は裏で静かに行うので出さない
 const BUSY_LABEL = { init: 'ログインしています…', events: '予定を読み込んでいます…', student: '予定を読み込んでいます…', log: '読み込んでいます…',
   add: '保存しています…', update: '保存しています…', cancel: '保存しています…', uncancel: '保存しています…', noMakeup: '保存しています…', delete: '保存しています…' };
-async function api(action, params) {
-  const done = BUSY_LABEL[action] ? busyStart(BUSY_LABEL[action]) : () => { };
+async function api(action, params, label) {
+  label = label || BUSY_LABEL[action];
+  const done = label ? busyStart(label) : () => { };
   try { return await callApi(action, params); } finally { done(); }
 }
 async function callApi(action, params) {
@@ -1386,7 +1392,7 @@ async function start() {
   try {
     const j = await api('init');
     ME = j.me; SV = j.version;
-    setMaster(j);
+    setMaster(j); REG_URL = j.regFormUrl || '';
     UI.login = ME.teacherId || CLASSROOM;
     if (UI.login === CLASSROOM && UI.view === 'my') UI.view = 'day';
     await ensureRange(addDays(today(), -42), addDays(today(), 120));
@@ -1416,6 +1422,13 @@ function ensureRange(f, t) {
     LR = [nf, nt];
   }).catch(onLoadError);
   return loadChain;
+}
+// 生徒・先生・部屋の一覧を読み直す（名簿で新しく入会した生徒を、開き直さずに予約できるように）。
+// 自動では読まず、メニューの「読み直す」と、生徒が見つからないときの「生徒の一覧を読み直す」を押したときだけ
+let REG_URL = '';
+async function reloadMaster() {
+  try { const j = await api('init', {}, '生徒の一覧を読み込んでいます…'); setMaster(j); REG_URL = j.regFormUrl || ''; return true; }
+  catch (e) { if (!['auth', 'forbidden'].includes(e.code)) toastErr(e.message); return false; }
 }
 // 読み込んだ期間をすべて読み直す（ほかの人が予定を変えたとき）
 function reloadAll() {
@@ -1586,6 +1599,7 @@ document.addEventListener('input', ev => {
   if (['title', 'group', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
 });
 function pickerAction(v, st, redraw, isView) {
+  if (v === 'reload') return reloadMaster().then(ok => { if (ok) { toastMsg('生徒の一覧を読み直しました'); redraw(); } });
   if (v === 'mine') { st.mineOnly = !st.mineOnly; }
   else if (v[0] === 'k') { const k = v.slice(1); st.krow = st.krow === k ? '' : k; }
   else if (v[0] === 's') {
@@ -1605,7 +1619,7 @@ function sheetAction(e, v, el) {
   switch (e) {
     case 'close': return closeSheet();
     case 'log': return openLog();
-    case 'reload': closeSheet(); return reloadAll().then(() => toastMsg('最新の予定を読み直しました'));
+    case 'reload': closeSheet(); return reloadMaster().then(ok => reloadAll().then(() => { if (ok) toastMsg('最新の予定と生徒の一覧を読み直しました'); }));
     case 'logout':
       token = null; try { localStorage.removeItem(TOKEN_KEY); } catch (e) { }
       if (window.google && google.accounts) google.accounts.id.disableAutoSelect();

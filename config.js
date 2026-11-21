@@ -3,6 +3,8 @@
 // clientId: Google Cloud で作った OAuth クライアントID（…apps.googleusercontent.com）
 // localhost から開いたとき（booking/serve.sh）は、テスト用の API（レッスン予約（テスト））を使う
 (() => {
+  // serve.sh の表示どおり 127.0.0.1 で開いたときは、Google に登録してある localhost に移す（127.0.0.1 ではログインできないため）
+  if (location.hostname === '127.0.0.1') return location.replace(location.href.replace('//127.0.0.1', '//localhost'));
   const test = location.hostname === 'localhost';
   window.MENUET_CONFIG = {
     apiUrl: test
