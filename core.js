@@ -7,6 +7,8 @@ const WD = ['日', '月', '火', '水', '木', '金', '土'];
 const PALETTE = ['#1d4ed8', '#be123c', '#15803d', '#a16207', '#7e22ce', '#0e7490', '#c2410c', '#334155', '#a21caf', '#4d7c0f', '#4338ca', '#8a4b1f'];
 // 先生・部屋・生徒・グループ（名簿マスターと予約スプレッドシートから。setMaster で入れる）
 let ROOMS = [], TEACHERS = [], TMAP = new Map(), STUDENTS = [], SMAP = new Map(), GROUPS = [], GMAP = new Map();
+// 教室外の場所の候補（予約スプレッドシートの「場所」シート。候補にない場所も文字で入れられる）
+let PLACES = [];
 // 色（#rrggbb）を白と混ぜて、枠の背景に使う薄い色を作る
 function tint(hex, k) {
   const n = parseInt(hex.slice(1), 16), mix = c => Math.round(c + (255 - c) * k);
@@ -24,7 +26,9 @@ function setMaster(d) {
     .sort((a, b) => a.kana.localeCompare(b.kana, 'ja'));
   SMAP = new Map(STUDENTS.map(s => [s.id, s]));
   // グループ：teachers はメインの先生（何人でも）。active：活動中（終了したグループは過去の予定の表示にだけ使う）
-  GROUPS = (d.groups || []).map(g => ({ id: g.id, name: g.name, teachers: g.teachers || [], active: g.active !== false }));
+  // home：いつもの部屋・場所（{ rooms: ['R3'] } か、教室外なら { rooms: [], place: '分館' }。決めていなければ null）
+  GROUPS = (d.groups || []).map(g => ({ id: g.id, name: g.name, teachers: g.teachers || [], active: g.active !== false, home: g.home || null }));
+  PLACES = d.places || [];
   GMAP = new Map(GROUPS.map(g => [g.id, g]));
 }
 // 予約の選択肢に出す先生（在籍）と生徒（在籍・休会）
@@ -33,9 +37,10 @@ const isBookable = s => s.status === '在籍' || s.status === '休会';
 // rows: 一画面で何回分か（日時・部屋・先生が回ごとに違ってよい）を入れる / repeat: 毎週・隔週の繰り返しで入れる
 // rooms: one=1部屋 / multi=複数（既定は全部屋） / opt=なしも可 / none=部屋なし
 // teachers: mainsub=メイン＋伴奏 / multi=複数 / one=1人 / none
+// outside: 部屋の代わりに「教室外」も選べる（部屋なし＋場所。部屋のぶつかりは見ず、先生のぶつかりだけ見る）
 const TYPES = {
   lesson:   { label: 'レッスン', rooms: 'one',   teachers: 'mainsub', student: true, rows: true },
-  group:    { label: 'グループ', rooms: 'one',   teachers: 'mainsub', group: true, rows: true },
+  group:    { label: 'グループ', rooms: 'one',   teachers: 'mainsub', group: true, rows: true, outside: true },
   // 体験：入会前の人の1回だけのレッスン。生徒ではないので、名前（任意・わかる範囲）を文字で持つ
   trial:    { label: '体験',     rooms: 'one',   teachers: 'mainsub', title: true, titleLabel: '申し込んだ人の名前（任意）', titleHint: '例：やまだ（わかる範囲で）' },
   practice: { label: '先生練習', rooms: 'one',   teachers: 'multi', title: true, repeat: true },
@@ -91,6 +96,10 @@ function holidaysOf(y) {
 }
 const holidayName = d => holidaysOf(+d.slice(0, 4)).get(d) || '';
 const roomsText = rs => !rs || !rs.length ? '部屋なし' : rs.length === ROOMS.length ? '全部屋' : rs.map(rName).join('・');
+// 教室外のグループなど：部屋を選べる種類で、部屋の代わりに「教室外」を選んだ予定
+const isOutside = e => !!TYPES[e.type].outside && !(e.rooms && e.rooms.length);
+// 部屋の欄に出す文字。教室外なら場所を添える
+const whereText = e => isOutside(e) ? '教室外' + (e.place ? '（' + e.place + '）' : '') : roomsText(e.rooms);
 
 const sName = id => (SMAP.get(id) || { name: '' }).name;
 // グループの予定の名前：グループシートの今の名前。見つからなければ、入れたときの名前
@@ -208,7 +217,7 @@ function monthDay(d, R, out, fold, noLine, noNow) {
   const list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
   const ex = list.filter(e => e.allDay || !(e.rooms && e.rooms.length)).sort((a, b) => a.start - b.start).map(e => {
     const who = tOf(e).map(tName).join('・');
-    return e.type === 'absent' ? `不在:${who}${e.allDay ? '' : '〜' + hm(e.start + e.len)}` : e.type === 'out' ? `外:${who}` : evTitle(e);
+    return e.type === 'absent' ? `不在:${who}${e.allDay ? '' : '〜' + hm(e.start + e.len)}` : e.type === 'out' ? `外:${who}` : isOutside(e) ? `外:${evTitle(e)}` : evTitle(e);
   });
   if (holidayName(d)) ex.unshift(holidayName(d));
   let h = `<div class="mday${noLine ? ' nl' : ''}${out ? ' out' : ''}${d === today() ? ' today' : ''}${dow(d) === 0 ? ' sun' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-template-columns:repeat(${C},minmax(0,1fr));grid-template-rows:var(--mhd) repeat(${NS},var(--mrow))">`;
