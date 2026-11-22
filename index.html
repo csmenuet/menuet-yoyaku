@@ -50,7 +50,7 @@ a.btn{color:inherit;text-decoration:none}
 .chip.t-event{background:var(--ev-event);color:var(--ev-event-f);border:1px dashed var(--ev-event-b)}
 .chip.t-record{background:var(--ev-record);color:var(--ev-record-f);border-color:var(--ev-record-b)}
 .chip.t-clean{background:var(--ev-clean);color:var(--ev-clean-f)}
-.chip.t-group{background:var(--c,var(--line2));color:var(--cf,inherit);border-color:var(--cf,transparent)}
+.chip.t-group{background:var(--c,var(--line2));color:var(--cf,inherit);border-color:var(--cb,var(--cf,transparent))}
 /* grid */
 .gridwrap{flex:1;min-height:0;overflow:auto;background:var(--panel)}
 .grid{display:grid;position:relative;min-width:max-content}
@@ -91,7 +91,7 @@ a.btn{color:inherit;text-decoration:none}
 .wev .ev-t{font-size:10px}
 .wev .ev-s{font-size:9px}
 .ev{z-index:2;margin:1px 2px;border-radius:6px;padding:2px 5px;overflow:hidden;cursor:pointer;
-  background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:4px solid var(--cf,#888);line-height:1.2;min-width:0}
+  background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:4px solid var(--cb,var(--cf,#888));line-height:1.2;min-width:0}
 .ev-t{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-s{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-s .room{font-weight:700}
@@ -112,7 +112,7 @@ a.btn{color:inherit;text-decoration:none}
 /* lists */
 .wrap{max-width:760px;margin:0 auto;padding:12px}
 .sec{margin:16px 0 6px;font-size:13px;color:var(--sub);font-weight:700}
-.card{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:6px solid var(--cf,var(--line))}
+.card{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:6px solid var(--cb,var(--cf,var(--line)))}
 .ctime{font-weight:700;min-width:84px;font-variant-numeric:tabular-nums}
 .ctime small{display:block;font-weight:400;color:var(--sub)}
 .cbody{flex:1;min-width:0;cursor:pointer}
@@ -126,7 +126,7 @@ a.btn{color:inherit;text-decoration:none}
 .li .x{flex:1;min-width:0}
 .li .x small{color:var(--sub)}
 .li.cancel{opacity:.6}
-.li.tc{border-left:6px solid var(--cf)}
+.li.tc{border-left:6px solid var(--cb,var(--cf))}
 .li.tc .who{display:inline-block;background:var(--c);color:var(--cf);border-radius:4px;padding:0 6px;font-weight:700}
 .li.cancel .d{text-decoration:line-through}
 .tag{display:inline-block;font-size:11px;border-radius:4px;padding:0 6px;background:var(--line2);color:var(--sub);margin-left:4px;font-weight:400}
@@ -168,8 +168,9 @@ a.btn{color:inherit;text-decoration:none}
 .opt:disabled{opacity:.4;border-style:dashed;cursor:default;color:var(--sub)}
 .opt{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px}
 .opt.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
-.opt.tc{border-left:5px solid var(--cf)}
-.opt.tc.on{background:var(--cf);border-color:var(--cf)}
+.opt.tc{border-left:5px solid var(--cb,var(--cf))}
+/* 選んだ先生：枠と同じ見た目（薄めた背景・濃い文字・鮮やかな線）。白い文字にすると、明るい色（黄・水色など）が読めないため */
+.opt.tc.on{background:var(--c);border-color:var(--cb,var(--cf));color:var(--cf);box-shadow:inset 0 0 0 1px var(--cb,var(--cf))}
 .opt.busy{opacity:.45;text-decoration:line-through}
 .inp{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--panel);min-width:0}
 .inp.wide{width:100%}
@@ -262,7 +263,7 @@ a.btn{color:inherit;text-decoration:none}
 .tmday.sun .dn,.tmday.red .dn{color:#c0392b}
 .tmday .dn small{font-weight:400;font-size:10px;margin-left:4px}
 .tmi{display:flex;flex-wrap:wrap;column-gap:4px;font-size:11px;line-height:1.3;margin-top:2px;padding:1px 3px;border-radius:3px;cursor:pointer;
-  background:var(--c,var(--line2));color:var(--ink);border-left:3px solid var(--cf,var(--sub))}
+  background:var(--c,var(--line2));color:var(--ink);border-left:3px solid var(--cb,var(--cf,var(--sub)))}
 .tmi .tm{font-weight:700;font-variant-numeric:tabular-nums}
 .tmi .nm{font-weight:700}
 .tmi .rm{font-weight:700;color:var(--cf,var(--ink))}
@@ -494,7 +495,7 @@ function renderWeek() {
   // 週は「全部屋」か「先生ごと」。部屋ごとの表示はなし（前に保存された部屋の指定は全部屋に戻す）
   if (!(UI.wf === 'ALL' || TMAP.has(UI.wf))) UI.wf = 'ALL';
   const ws = UI.week, days = [...Array(7).keys()].map(i => addDays(ws, i)), f = UI.wf, isRoom = false;
-  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${f === v ? ' on' : ''}"${st ? ` style="--cf:${st}"` : ''} data-act="wf" data-v="${v}">${esc(l)}</button>`;
+  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${f === v ? ' on' : ''}"${st ? ` style="${st}"` : ''} data-act="wf" data-v="${v}">${esc(l)}</button>`;
   // ヘッダは1行にまとめる（週の移動・表示の切り替え・空き）
   let h = `<div class="bar wbar">
     <button class="btn sq" data-act="week-1">‹</button>
@@ -502,7 +503,7 @@ function renderWeek() {
     <button class="btn sq" data-act="week+1">›</button>
     <button class="btn" data-act="weekThis">今週</button>
     <span class="vsep"></span>
-    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, t.fg)).join('')}</div>
+    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, tcStyle(t))).join('')}</div>
     ${TMAP.has(f) ? `<button class="opt${UI.wfree ? ' on' : ''}" data-act="wfree">空き</button>` : ''}
   </div>`;
   if (f === 'ALL') return h + weekAllGrid(ws, days);
@@ -594,13 +595,13 @@ function renderMonth() {
   const last = ds(new Date(y, mo + 1, 0)), fold = UI.mfold;
   if (!(UI.mf === 'ALL' || TMAP.has(UI.mf))) UI.mf = 'ALL';
   const mf = UI.mf;
-  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${mf === v ? ' on' : ''}"${st ? ` style="--cf:${st}"` : ''} data-act="mf" data-v="${v}">${esc(l)}</button>`;
+  const chip = (v, l, st) => `<button class="opt${st ? ' tc' : ''}${mf === v ? ' on' : ''}"${st ? ` style="${st}"` : ''} data-act="mf" data-v="${v}">${esc(l)}</button>`;
   // ヘッダは週と同じ1行：月の移動｜全部屋・先生｜表示の設定（全部屋）または印刷（先生ごと）
   let h = `<div class="bar wbar mon">
     <button class="btn sq" data-act="mon-1">‹</button><span class="title">${y}年${mo + 1}月</span><button class="btn sq" data-act="mon+1">›</button>
     <button class="btn" data-act="monThis">今月</button>
     <span class="vsep"></span>
-    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, t.fg)).join('')}</div>
+    <div class="wchips">${chip('ALL', '全部屋')}${activeTeachers().map(t => chip(t.id, t.name, tcStyle(t))).join('')}</div>
     <span class="vsep"></span>`;
   if (mf === 'ALL') {
     h += `${[[7, '小'], [10, '中'], [13, '大']].map(([v, l]) => `<button class="opt${UI.mrow === v ? ' on' : ''}" data-act="mSize" data-v="${v}">${l}</button>`).join('')}
@@ -931,7 +932,7 @@ function weeklySettings() {
     h += `<div class="fld"><span class="lab">続けてもう1コマ（先生を変えて。歌のあとにピアノ、など）</span><div class="opts"><button class="opt${D.cont ? '' : ' on'}" data-e="contOn" data-v="0">なし</button><button class="opt${D.cont ? ' on' : ''}" data-e="contOn" data-v="1">あり</button></div>`;
     if (D.cont) {
       h += `<div class="opts" style="margin-top:6px">${[30, 45, 60].map(l => `<button class="opt${D.cont.len === l ? ' on' : ''}" data-e="cLen" data-v="${l}">${l}分</button>`).join('')}</div>
-        <div class="opts" style="margin-top:6px">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => `<button class="opt tc${D.cont.teachers[0] === t.id ? ' on' : ''}" style="--cf:${t.fg}" data-e="cT" data-v="${t.id}">${esc(t.name)}</button>`).join('')}</div>
+        <div class="opts" style="margin-top:6px">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => `<button class="opt tc${D.cont.teachers[0] === t.id ? ' on' : ''}" style="${tcStyle(t)}" data-e="cT" data-v="${t.id}">${esc(t.name)}</button>`).join('')}</div>
         <div class="opts" style="margin-top:6px"><button class="opt${D.cont.room ? '' : ' on'}" data-e="cRoom" data-v="">同じ部屋</button>${ROOMS.map(r => `<button class="opt${D.cont.room === r.id ? ' on' : ''}" data-e="cRoom" data-v="${r.id}">${esc(r.name)}</button>`).join('')}</div>`;
     }
     h += `</div>`;
@@ -1262,7 +1263,7 @@ function subRow(tid) {
 }
 function teacherOpt(t, on, e) {
   const busy = !on && teacherBusy(t.id);
-  return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="--cf:${t.fg}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
+  return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="${tcStyle(t)}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
 }
 function roomBusy(rid) {
   const e = draftEvent();

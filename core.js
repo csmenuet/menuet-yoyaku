@@ -14,12 +14,30 @@ function tint(hex, k) {
   const n = parseInt(hex.slice(1), 16), mix = c => Math.round(c + (255 - c) * k);
   return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(c => mix(c).toString(16).padStart(2, '0')).join('');
 }
+// 色を黒と混ぜて暗くする（k：0〜1）
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(c => Math.round(c * (1 - k)).toString(16).padStart(2, '0')).join('');
+}
+// 2色のコントラスト比（WCAG）
+function contrast(a, b) {
+  const lum = hex => { const n = parseInt(hex.slice(1), 16); const [r, g, bl] = [n >> 16, (n >> 8) & 255, n & 255].map(c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * bl; };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => p - q);
+  return (y + .05) / (x + .05);
+}
+// 先生の色：シートの色（鮮やかな色でよい）を、枠の線（bar）にそのまま使い、背景（bg）はそれを薄めた色、
+// 文字（fg）は同じ色合いのまま、背景の上で読める濃さ（コントラスト比4.5以上）まで暗くした色にする
+function teacherColors(base) {
+  const bg = tint(base, .6);
+  let k = 0;
+  while (contrast(shade(base, k), bg) < 4.5 && k < 1) k += .02;
+  return { bar: base, bg, fg: shade(base, k) };
+}
 function setMaster(d) {
   ROOMS = (d.rooms || []).map(r => ({ id: r.id, name: r.name }));
   // name：表や枠に出す短い表示名。full：ログインや詳細、印刷の見出しに出す名前。active：在籍（退職した先生は過去の予定の表示にだけ使う）
   TEACHERS = (d.teachers || []).map((t, i) => {
-    const fg = t.color || PALETTE[i % PALETTE.length];
-    return { id: t.id, name: t.name || t.full, full: t.full || t.name, kind: t.lessons || '', active: t.active !== false, fg, bg: tint(fg, .85) };
+    return { id: t.id, name: t.name || t.full, full: t.full || t.name, kind: t.lessons || '', active: t.active !== false, ...teacherColors(t.color || PALETTE[i % PALETTE.length]) };
   });
   TMAP = new Map(TEACHERS.map(t => [t.id, t]));
   STUDENTS = (d.students || []).map(s => ({ id: s.id, name: s.name, kana: s.kana || '', status: s.status || '' }))
@@ -180,11 +198,13 @@ function evWho(e) {
   return ts.map(tName).join('・');
 }
 const evTime = e => e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`;
+// 先生の色の CSS 変数：--c 背景、--cf 文字、--cb 線
+const tcStyle = t => `--c:${t.bg};--cf:${t.fg};--cb:${t.bar};`;
 function teacherStyle(e) {
   if (e.type === 'spractice') return '--c:var(--ev-spr);--cf:var(--ev-spr-f);';
   if (!['lesson', 'group', 'trial', 'practice'].includes(e.type)) return '';
   const t = TMAP.get(tOf(e)[0]);
-  return t ? `--c:${t.bg};--cf:${t.fg};` : '';
+  return t ? tcStyle(t) : '';
 }
 function shortTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId).split('　')[0] || '？';
@@ -202,7 +222,7 @@ function bandParts(e) {
 const bandText = e => { const p = bandParts(e); return [p.title, p.time, p.who].filter(Boolean).join(' '); };
 
 /* ===== 月の全部屋（操作用の「月」と掲示で共通） ===== */
-const legend = () => `<span class="mleg">${activeTeachers().map(t => `<span style="--c:${t.bg};--cf:${t.fg}">${esc(t.name)}</span>`).join('')}</span>`;
+const legend = () => `<span class="mleg">${activeTeachers().map(t => `<span style="${tcStyle(t)}">${esc(t.name)}</span>`).join('')}</span>`;
 // 週（日曜の日付）の並びを、日ごとの枠で描く。dim(d) が真の日は薄くする
 // noNow：現在時刻の線を引かない（掲示）
 function monthGrid(weeks, dim, fold, style, key, noNow) {

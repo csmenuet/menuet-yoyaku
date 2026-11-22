@@ -36,7 +36,7 @@
 .mbar .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .mbar b{font-size:13px;margin:0 2px}
 .mleg{display:flex;gap:3px;flex-wrap:wrap;flex:1;justify-content:flex-end}
-.mleg span{border-radius:3px;padding:0 5px;font-size:10px;line-height:15px;background:var(--c);color:var(--cf);border-left:3px solid var(--cf)}
+.mleg span{border-radius:3px;padding:0 5px;font-size:10px;line-height:15px;background:var(--c);color:var(--cf);border-left:3px solid var(--cb,var(--cf))}
 .mwrap{flex:1;min-height:0;overflow:auto;position:relative;background:var(--bg)}
 .mweek{display:grid;border-bottom:3px solid var(--sub)}
 .mgut{display:grid;background:var(--panel);font-size:max(8px,calc(var(--mfs,8px) - 2px));color:var(--sub);border-left:3px solid var(--sub)}
@@ -59,7 +59,7 @@
 .mday.today .mhd b{color:#fff}
 .mhd .ex{overflow:hidden;text-overflow:ellipsis}
 .mbody{background-image:linear-gradient(to right,var(--line2) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px);pointer-events:none}
-.mev{z-index:2;min-width:0;overflow:hidden;white-space:nowrap;cursor:pointer;background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:2px solid var(--cf,#888);
+.mev{z-index:2;min-width:0;overflow:hidden;white-space:nowrap;cursor:pointer;background:var(--c,#e8e8e8);color:var(--cf,#333);border-left:2px solid var(--cb,var(--cf,#888));
   font-size:var(--mfs,max(7px,calc(var(--mrow) - 2px)));line-height:var(--mrow);padding-left:1px;font-weight:700;margin:0 0 0 1px;letter-spacing:-.5px}
 .mev.t-record{--c:var(--ev-record);--cf:var(--ev-record-f);box-shadow:inset 0 0 0 1px var(--ev-record-b)}
 .mev.t-clean{--c:var(--ev-clean);--cf:var(--ev-clean-f)}
