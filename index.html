@@ -358,12 +358,6 @@ if (Object.hasOwn(TAB_NAMES, TAB_Q || '')) {
 function saveUI() { try { localStorage.setItem(UKEY, JSON.stringify({ view: UI.view, wf: UI.wf, mrow: UI.mrow, mfold: UI.mfold, mf: UI.mf })); } catch (e) { } }
 
 /* ===== 表示用の文字 ===== */
-function bandLabel(e) {
-  const who = tOf(e).map(tName).join('・');
-  if (e.type === 'absent') return `${who}先生 不在`;
-  if (e.type === 'out') return `${who}先生 ${e.place || '教室外'}`;
-  return evTitle(e) + (who && !hideWho(e) ? `（${who}）` : '') + (isOutside(e) ? ' ' + whereText(e) : '');
-}
 function nextOf(e) {
   const later = x => x.status !== 'cancel' && x.id !== e.id && (x.date > e.date || (x.date === e.date && x.start > e.start));
   let best = null;
@@ -475,7 +469,7 @@ function band(d) {
   const items = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
   const hol = holidayName(d);
   if (!items.length && !hol) return `<div class="band empty">終日の予定・不在や教室外の先生はいません</div>`;
-  return `<div class="band">${hol ? `<span class="chip hol"><b>${esc(hol)}</b></span>` : ''}${items.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}"><b>${esc(bandLabel(e))}</b> ${evTime(e)}</button>`).join('')}</div>`;
+  return `<div class="band">${hol ? `<span class="chip hol"><b>${esc(hol)}</b></span>` : ''}${items.map(e => { const p = bandParts(e); return `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}"><b>${esc(p.title)}</b> ${p.time}${p.who ? ' ' + esc(p.who) : ''}</button>`; }).join('')}</div>`;
 }
 // 週の見出しの日付。祝日なら名前を添える
 const dayHead = d => md(d) + (holidayName(d) ? `<span class="hn">${esc(holidayName(d))}</span>` : '');
@@ -558,7 +552,7 @@ function weekAllGrid(ws, days) {
     h += `<div class="gh click dsep${d === today() ? ' today' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-column:${c0}/span ${R}" data-act="gotoDay" data-d="${d}">${dayHead(d)}</div>`;
     ROOMS.forEach((r, k) => h += `<div class="gh2${k ? '' : ' dsep'}" style="grid-column:${c0 + k}" title="${esc(r.name)}">${esc(roomShort(r))}</div>`);
     const chips = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
-    h += `<div class="wband dsep" style="grid-column:${c0}/span ${R};grid-row:3">${chips.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}">${esc(bandLabel(e))} ${e.allDay ? '' : hm(e.start) + '–' + hm(e.start + e.len)}</button>`).join('')}</div>`;
+    h += `<div class="wband dsep" style="grid-column:${c0}/span ${R};grid-row:3">${chips.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}">${esc(bandText(e))}</button>`).join('')}</div>`;
   });
   for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + ROW0}/span 2">${DAY_START / 60 + s / 2}</div>`;
   days.forEach((d, i) => {

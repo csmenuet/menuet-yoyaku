@@ -194,6 +194,13 @@ function shortTitle(e) {
   return evTitle(e);
 }
 
+// 上の帯（終日の予定・部屋のない予定）に出す文字。名前（グループ名・行事名・場所など）→ 時間 → 担当の先生の順に並べる
+function bandParts(e) {
+  const title = e.type === 'absent' ? '不在' : e.type === 'out' ? e.place || '教室外' : evTitle(e) + (isOutside(e) ? ' ' + whereText(e) : '');
+  return { title, time: e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`, who: hideWho(e) ? '' : tOf(e).map(tName).join('・') };
+}
+const bandText = e => { const p = bandParts(e); return [p.title, p.time, p.who].filter(Boolean).join(' '); };
+
 /* ===== 月の全部屋（操作用の「月」と掲示で共通） ===== */
 const legend = () => `<span class="mleg">${activeTeachers().map(t => `<span style="--c:${t.bg};--cf:${t.fg}">${esc(t.name)}</span>`).join('')}</span>`;
 // 週（日曜の日付）の並びを、日ごとの枠で描く。dim(d) が真の日は薄くする
@@ -233,10 +240,7 @@ function monthGrid(weeks, dim, fold, style, key, noNow) {
 function monthDay(d, R, out, fold, noLine, noNow) {
   const C = fold ? 2 * R : R, NS = fold ? NSLOT / 2 : NSLOT, MID = DAY_START + NS * SLOT;
   const list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
-  const ex = list.filter(e => e.allDay || !(e.rooms && e.rooms.length)).sort((a, b) => a.start - b.start).map(e => {
-    const who = tOf(e).map(tName).join('・');
-    return e.type === 'absent' ? `不在:${who}${e.allDay ? '' : '〜' + hm(e.start + e.len)}` : e.type === 'out' ? `外:${who}` : isOutside(e) ? `外:${evTitle(e)}` : evTitle(e);
-  });
+  const ex = list.filter(e => e.allDay || !(e.rooms && e.rooms.length)).sort((a, b) => a.start - b.start).map(bandText);
   if (holidayName(d)) ex.unshift(holidayName(d));
   let h = `<div class="mday${noLine ? ' nl' : ''}${out ? ' out' : ''}${d === today() ? ' today' : ''}${dow(d) === 0 ? ' sun' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-template-columns:repeat(${C},minmax(0,1fr));grid-template-rows:var(--mhd) repeat(${NS},var(--mrow))">`;
   h += `<div class="mhd" style="grid-column:1/-1" data-act="gotoDay" data-d="${d}" title="${esc(ex.join(' / '))}"><b>${out ? pd(d).getMonth() + 1 + '/' : ''}${pd(d).getDate()}</b>${WD[dow(d)]}<span class="ex">${esc(ex.join(' / '))}</span></div>`;
