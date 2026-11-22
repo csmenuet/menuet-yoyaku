@@ -359,7 +359,7 @@ function bandLabel(e) {
   const who = tOf(e).map(tName).join('・');
   if (e.type === 'absent') return `${who}先生 不在`;
   if (e.type === 'out') return `${who}先生 ${e.place || '教室外'}`;
-  return evTitle(e) + (who ? `（${who}）` : '') + (isOutside(e) ? ' ' + whereText(e) : '');
+  return evTitle(e) + (who && !hideWho(e) ? `（${who}）` : '') + (isOutside(e) ? ' ' + whereText(e) : '');
 }
 function nextOf(e) {
   const later = x => x.status !== 'cancel' && x.id !== e.id && (x.date > e.date || (x.date === e.date && x.start > e.start));
@@ -456,10 +456,10 @@ function evBlock(e, style, hl, forTeacher) {
   const cls = ['ev', 't-' + e.type];
   if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
   const short = e.len <= 30;
-  let sub = esc(evWho(e));
+  let sub = hideWho(e) ? '' : esc(evWho(e));
   if (forTeacher) {
     const ts = tOf(e), others = ts.filter(t => t !== forTeacher).map(tName);
-    const role = TYPES[e.type].teachers === 'mainsub' ? (ts[0] === forTeacher ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）') : others.join('・');
+    const role = TYPES[e.type].teachers === 'mainsub' ? (ts[0] === forTeacher ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）') : hideWho(e) ? '' : others.join('・');
     sub = (e.rooms && e.rooms.length || isOutside(e) ? `<b class="room">${esc(whereText(e))}</b> ` : '') + esc(role);
   }
   return `<div class="${cls.join(' ')}" data-ev="${e.id}" style="${style};${teacherStyle(e)}">` +
@@ -571,14 +571,14 @@ function weekAllGrid(ws, days) {
       const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
       if (s1 <= s0 || !idx.length) continue;
       const row = `grid-row:${(s0 - DAY_START) / SLOT + ROW0}/span ${(s1 - s0) / SLOT}`;
-      const tip = `${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}（${evWho(e)}）`;
+      const tip = `${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}${hideWho(e) ? '' : `（${evWho(e)}）`}`;
       let a = idx[0];
       for (let k = 1; k <= idx.length; k++) {
         if (k === idx.length || idx[k] !== idx[k - 1] + 1) {
           const cls = ['ev', 'wev', 't-' + e.type];
           if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
           h += `<div class="${cls.join(' ')}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${c0 + a}/${c0 + idx[k - 1] + 1};${row};${teacherStyle(e)}">` +
-            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length ? `<div class="ev-s">${esc(tName(tOf(e)[0]))}</div>` : ''}</div>`;
+            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length && !hideWho(e) ? `<div class="ev-s">${esc(tName(tOf(e)[0]))}</div>` : ''}</div>`;
           a = idx[k];
         }
       }
@@ -627,7 +627,7 @@ function teacherMonth(first, last, tid) {
     const ts = tOf(e), others = ts.filter(x => x !== tid).map(tName);
     let role = '';
     if (TYPES[e.type].teachers === 'mainsub') role = ts[0] === tid ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）';
-    else if (others.length) role = others.join('・');
+    else if (others.length && !hideWho(e)) role = others.join('・');
     const what = e.type === 'absent' ? '不在' : e.type === 'out' ? (e.place || '教室外') : evTitle(e);
     return `<div class="tmi t-${e.type}${ts[0] !== tid && TYPES[e.type].teachers === 'mainsub' ? ' acc' : ''}" data-ev="${e.id}" style="${teacherStyle(e)}">` +
       `<span class="tm">${e.allDay ? '終日' : hm(e.start) + '–' + hm(e.start + e.len)}</span><span class="nm">${esc(what)}</span>` +

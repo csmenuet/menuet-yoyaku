@@ -3,7 +3,8 @@
    ボタンなど白い文字を載せる色（--accent）は、読みやすさのためにホームページのオレンジ（--brand-orange）より濃くしている。
    予定の色：色が付くのは先生の予定（レッスン・グループ・体験・先生練習）だけ。それ以外の種類は先生の色と見分けられるよう、
    白・グレー・黒にして、塗り方で分ける（行事＝白に点線の枠、録音＝白に黒い枠、掃除＝薄いグレーに斜線、生徒練習＝グレー、
-   教室外＝薄いグレー、不在＝薄いグレーに斜線、教室の休み・祝日＝白に黒い枠）。-b は枠の色 */
+   教室外＝薄いグレー、不在＝薄いグレーに斜線、教室の休み・祝日＝白に黒い枠）。-b は枠の色。
+   生徒の予定をいちばん目立たせるため、教室や先生の都合の予定（行事・録音・掃除・教室の休み）は、線も文字も薄いグレーにする */
 :root{
   --brand-orange:#e48740; --brand-green:#8dc131; --brand-red:#cd332b;
   --brand-font:"Hiragino Maru Gothic ProN","Zen Maru Gothic","BIZ UDPGothic",sans-serif;
@@ -11,10 +12,10 @@
   --accent:#b8561a; --accentbg:#fbe9da; --bad:#c62f2f; --badbg:#fdeaea; --warn:#8a5a00; --warnbg:#fff3d1;
   --ok:#4d7c0f; --okbg:#eef6dc; --free:#dcefb8; --freeline:#6aa121;
   --rowh:34px; --headh:30px; --timew:44px; --colmin:78px; --fs:14px;
-  --ev-record:#ffffff; --ev-record-f:#222; --ev-record-b:#222; --ev-clean:#e6e6e6; --ev-clean-f:#4a4a4a;
+  --ev-record:#ffffff; --ev-record-f:#666; --ev-record-b:#a0a0a0; --ev-clean:#e6e6e6; --ev-clean-f:#666;
   --ev-spr:#d9d9d9; --ev-spr-f:#555;
-  --ev-event:#ffffff; --ev-event-f:#333; --ev-event-b:#555; --ev-out:#ececec; --ev-out-f:#333; --ev-absent:#e8e8e8; --ev-absent-f:#4a4a4a;
-  --ev-closed:#ffffff; --ev-closed-f:#222; --ev-closed-b:#222;
+  --ev-event:#ffffff; --ev-event-f:#666; --ev-event-b:#a0a0a0; --ev-out:#ececec; --ev-out-f:#333; --ev-absent:#e8e8e8; --ev-absent-f:#4a4a4a;
+  --ev-closed:#ffffff; --ev-closed-f:#666; --ev-closed-b:#a0a0a0;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){

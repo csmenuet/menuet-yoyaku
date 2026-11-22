@@ -161,6 +161,8 @@ function evTitle(e) {
   if (e.type === 'absent') return '不在';
   return e.title || TYPES[e.type].label;
 }
+// 表・帯に先生の名前を出さない種類（行事は関わる先生が多く、1人だけ出しても全員出しても分かりにくいため。詳細には出す）
+const hideWho = e => e.type === 'event';
 function evWho(e) {
   const ts = tOf(e);
   if (e.type === 'spractice') return '練習';
@@ -242,7 +244,7 @@ function monthDay(d, R, out, fold, noLine, noNow) {
     const idx = e.rooms.map(r => ROOMS.findIndex(x => x.id === r)).filter(x => x >= 0).sort((a, b) => a - b);
     const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
     if (s1 <= s0 || !idx.length) continue;
-    const tip = `${md(d)} ${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}（${evWho(e)}）`;
+    const tip = `${md(d)} ${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}${hideWho(e) ? '' : `（${evWho(e)}）`}`;
     // 2列のときは、15時をまたぐ予定を左右に分けて置く
     const segs = !fold ? [[s0, s1, 0, DAY_START]] : [[s0, Math.min(s1, MID), 0, DAY_START], [Math.max(s0, MID), s1, R, MID]].filter(([a, b]) => b > a);
     for (const [a0, a1, off, base] of segs) {
