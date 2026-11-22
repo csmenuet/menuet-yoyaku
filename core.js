@@ -44,6 +44,8 @@ const TYPES = {
   // 体験：入会前の人の1回だけのレッスン。生徒ではないので、名前（任意・わかる範囲）を文字で持つ
   trial:    { label: '体験',     rooms: 'one',   teachers: 'mainsub', title: true, titleLabel: '申し込んだ人の名前（任意）', titleHint: '例：やまだ（わかる範囲で）' },
   practice: { label: '先生練習', rooms: 'one',   teachers: 'multi', title: true, repeat: true },
+  // 生徒練習：生徒が先生なしで部屋だけ使う（部屋代がかかるので、レッスンとは分けて持つ）。グループの練習はない
+  spractice: { label: '生徒練習', rooms: 'one',  teachers: 'none', student: true, rows: true },
   record:   { label: '録音',     rooms: 'multi', teachers: 'multi', title: true },
   clean:    { label: '掃除',     rooms: 'multi', teachers: 'none', title: true, repeat: true },
   event:    { label: '行事',     rooms: 'opt',   teachers: 'multi', title: true, allDay: true },
@@ -154,17 +156,20 @@ function evTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId) || '（生徒未定）';
   if (e.type === 'group') return gName(e);
   if (e.type === 'trial') return e.title ? `体験 ${e.title}` : '体験';
+  if (e.type === 'spractice') return sName(e.studentId) || '（生徒未定）';
   if (e.type === 'out') return e.place || '教室外';
   if (e.type === 'absent') return '不在';
   return e.title || TYPES[e.type].label;
 }
 function evWho(e) {
   const ts = tOf(e);
+  if (e.type === 'spractice') return '練習';
   if (TYPES[e.type].teachers === 'mainsub') return ts.length ? tName(ts[0]) + (ts.length > 1 ? ' / 伴 ' + ts.slice(1).map(tName).join('・') : '') : '先生未定';
   return ts.map(tName).join('・');
 }
 const evTime = e => e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`;
 function teacherStyle(e) {
+  if (e.type === 'spractice') return '--c:var(--ev-spr);--cf:var(--ev-spr-f);';
   if (!['lesson', 'group', 'trial', 'practice'].includes(e.type)) return '';
   const t = TMAP.get(tOf(e)[0]);
   return t ? `--c:${t.bg};--cf:${t.fg};` : '';
@@ -173,6 +178,7 @@ function shortTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId).split('　')[0] || '？';
   if (e.type === 'group') return gName(e);
   if (e.type === 'trial') return '体験';
+  if (e.type === 'spractice') return sName(e.studentId).split('　')[0] || '？';
   return evTitle(e);
 }
 
