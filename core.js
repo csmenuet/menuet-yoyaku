@@ -111,13 +111,23 @@ const gName = e => (GMAP.get(e.groupId) || { name: '' }).name || e.group || 'グ
 // 45分のレッスンは1時間の枠を押さえる（枠は30分単位に切り上げる）
 const endOf = e => e.start + Math.ceil(e.len / SLOT) * SLOT;
 function overlap(a, b) { return a.date === b.date && a.start < endOf(b) && b.start < endOf(a); }
+// 先生 t がその予定に入る時間 [始まり, 終わり)。伴奏・サブの時間（e.subs[t] = { off, len }）を決めていなければ予定の時間すべて
+function spanOf(e, t) {
+  const p = e.subs && e.subs[t];
+  return p ? [e.start + p.off, e.start + p.off + p.len] : [e.start, endOf(e)];
+}
+// 伴奏・サブの時間を決めているとき、その時刻（例：17:30–18:30）。決めていなければ空
+const subTime = (e, t) => e.subs && e.subs[t] ? spanOf(e, t).map(hm).join('–') : '';
+// 先生がその予定に入る分数（伴奏の時間を決めていればその長さ。先生ごとの月の集計に使う）
+const minsOf = (e, t) => e.subs && e.subs[t] ? e.subs[t].len : e.len;
 function conflictsOf(ev, ignore, map) {
   const out = [], list = (map || byDate).get(ev.date) || [];
   for (const o of list) {
     if (o === ev || (o.id && o.id === ev.id) || o.status === 'cancel' || (ignore && ignore.has(o.id))) continue;
     if (!overlap(ev, o)) continue;
+    // 部屋は予定の時間すべて、先生はその先生が入る時間どうしで比べる（伴奏が一部の時間だけなら、残りの時間は空いている）
     const rs = (ev.rooms || []).filter(r => (o.rooms || []).includes(r));
-    const ts = tOf(ev).filter(t => tOf(o).includes(t));
+    const ts = tOf(ev).filter(t => { if (!tOf(o).includes(t)) return false; const [a0, a1] = spanOf(ev, t), [b0, b1] = spanOf(o, t); return a0 < b1 && b0 < a1; });
     if (rs.length) out.push({ kind: 'room', o, rs });
     if (ts.length) out.push({ kind: 'teacher', o, ts });
     if (!rs.length && !ts.length && ev.studentId && ev.studentId === o.studentId) out.push({ kind: 'student', o, warn: true });
@@ -166,7 +176,7 @@ const hideWho = e => e.type === 'event';
 function evWho(e) {
   const ts = tOf(e);
   if (e.type === 'spractice') return '練習';
-  if (TYPES[e.type].teachers === 'mainsub') return ts.length ? tName(ts[0]) + (ts.length > 1 ? ' / 伴 ' + ts.slice(1).map(tName).join('・') : '') : '先生未定';
+  if (TYPES[e.type].teachers === 'mainsub') return ts.length ? tName(ts[0]) + (ts.length > 1 ? ' / 伴 ' + ts.slice(1).map(t => tName(t) + (subTime(e, t) ? ' ' + subTime(e, t) : '')).join('・') : '') : '先生未定';
   return ts.map(tName).join('・');
 }
 const evTime = e => e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`;

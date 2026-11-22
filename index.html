@@ -163,6 +163,8 @@ a.btn{color:inherit;text-decoration:none}
 .addrow .btn span{display:inline-block;white-space:nowrap}
 .addrow .btn>i{font-style:normal;min-width:0}
 .opts{display:flex;gap:6px;flex-wrap:wrap}
+.subrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px}
+.subrow .opt{padding:3px 10px}
 .opt{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px}
 .opt.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .opt.tc{border-left:5px solid var(--cf)}
@@ -455,16 +457,18 @@ function nowLine(d, col, row0 = 2) {
 function evBlock(e, style, hl, forTeacher) {
   const cls = ['ev', 't-' + e.type];
   if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
-  const short = e.len <= 30;
+  // 先生から見るとき（forTeacher）、伴奏の時間を決めていれば、その時間を出す
+  const tt = forTeacher ? subTime(e, forTeacher) : '';
+  const short = (tt ? e.subs[forTeacher].len : e.len) <= 30;
   let sub = hideWho(e) ? '' : esc(evWho(e));
   if (forTeacher) {
-    const ts = tOf(e), others = ts.filter(t => t !== forTeacher).map(tName);
+    const ts = tOf(e), others = ts.filter(t => t !== forTeacher).map(t => tName(t) + (subTime(e, t) ? ' ' + subTime(e, t) : ''));
     const role = TYPES[e.type].teachers === 'mainsub' ? (ts[0] === forTeacher ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）') : hideWho(e) ? '' : others.join('・');
     sub = (e.rooms && e.rooms.length || isOutside(e) ? `<b class="room">${esc(whereText(e))}</b> ` : '') + esc(role);
   }
   return `<div class="${cls.join(' ')}" data-ev="${e.id}" style="${style};${teacherStyle(e)}">` +
     `<div class="ev-t">${esc(evTitle(e))}</div><div class="ev-s">${sub}</div>` +
-    (short ? '' : `<div class="ev-m">${evTime(e)}${e.memo ? ' ' + esc(e.memo) : ''}</div>`) + `</div>`;
+    (short ? '' : `<div class="ev-m">${tt || evTime(e)}${e.memo ? ' ' + esc(e.memo) : ''}</div>`) + `</div>`;
 }
 function band(d) {
   const items = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
@@ -526,7 +530,8 @@ function renderWeek() {
     for (const e of byDate.get(d) || []) {
       if (e.status === 'cancel') continue;
       if (isRoom ? !(e.rooms || []).includes(f) : !tOf(e).includes(f)) continue;
-      const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+      // 伴奏の時間を決めていれば、その時間だけの枠にする
+      const [e0, e1] = isRoom ? [e.start, endOf(e)] : spanOf(e, f), s0 = Math.max(e0, DAY_START), s1 = Math.min(e1, DAY_END);
       if (s1 <= s0) continue;
       h += evBlock(e, `grid-column:${i + 2};grid-row:${(s0 - DAY_START) / SLOT + 3}/span ${(s1 - s0) / SLOT}`, '', isRoom ? '' : f);
     }
@@ -616,21 +621,22 @@ function renderMonth() {
 function teacherMonth(first, last, tid) {
   const t = TMAP.get(tid), f = pd(first);
   const mine = d => (byDate.get(d) || []).filter(e => e.status !== 'cancel' && tOf(e).includes(tid)).sort((a, b) => a.start - b.start);
-  // 月のまとめ：メインで持つレッスン、伴奏で入るレッスン、体験（伴奏を含む。生徒は無料だが先生の給与には数える）
+  // 月のまとめ：メインで持つレッスン、伴奏で入るレッスン、体験（伴奏を含む。生徒は無料だが先生の給与には数える）。
+  // 時間は先生が実際に入る時間（伴奏の時間を決めていればその長さ）
   let main = 0, acc = 0, trial = 0, mins = 0;
   for (let d = first; d <= last; d = addDays(d, 1)) for (const e of mine(d)) {
     if (e.type !== 'lesson' && e.type !== 'group' && e.type !== 'trial') continue;
     if (e.type === 'trial') trial++; else if (tOf(e)[0] === tid) main++; else acc++;
-    mins += e.len;
+    mins += minsOf(e, tid);
   }
   const line = e => {
-    const ts = tOf(e), others = ts.filter(x => x !== tid).map(tName);
+    const ts = tOf(e), others = ts.filter(x => x !== tid).map(x => tName(x) + (subTime(e, x) ? ' ' + subTime(e, x) : ''));
     let role = '';
     if (TYPES[e.type].teachers === 'mainsub') role = ts[0] === tid ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）';
     else if (others.length && !hideWho(e)) role = others.join('・');
     const what = e.type === 'absent' ? '不在' : e.type === 'out' ? (e.place || '教室外') : evTitle(e);
     return `<div class="tmi t-${e.type}${ts[0] !== tid && TYPES[e.type].teachers === 'mainsub' ? ' acc' : ''}" data-ev="${e.id}" style="${teacherStyle(e)}">` +
-      `<span class="tm">${e.allDay ? '終日' : hm(e.start) + '–' + hm(e.start + e.len)}</span><span class="nm">${esc(what)}</span>` +
+      `<span class="tm">${e.allDay ? '終日' : subTime(e, tid) || hm(e.start) + '–' + hm(e.start + e.len)}</span><span class="nm">${esc(what)}</span>` +
       (e.rooms && e.rooms.length || isOutside(e) ? `<span class="rm">${esc(whereText(e))}</span>` : '') + (role ? `<span class="rl">${esc(role)}</span>` : '') + `</div>`;
   };
   let h = `<div class="tmwrap" data-k="tmonth${first}${tid}">
@@ -672,7 +678,7 @@ function renderMy() {
     }
     const role = TYPES[e.type].teachers === 'mainsub' && tOf(e)[0] !== me ? '<span class="tag warn">伴奏</span>' : '';
     h += `<div class="card" style="${teacherStyle(e)}">
-      <div class="ctime">${evTime(e)}<small>${esc(whereText(e))}</small></div>
+      <div class="ctime">${subTime(e, me) || evTime(e)}<small>${esc(whereText(e))}</small></div>
       <div class="cbody" data-ev="${e.id}"><div class="ctitle">${esc(evTitle(e))}${role}</div><div class="csub">${esc(TYPES[e.type].label)}・${esc(evWho(e))}${e.memo ? '・' + esc(e.memo) : ''}</div>${next}</div>
       ${canNext ? `<button class="btn${next.includes('none') ? ' pri' : ''}" data-act="next" data-id="${e.id}">次回を<br>入れる</button>` : ''}
     </div>`;
@@ -689,19 +695,20 @@ function renderMy() {
     if (!list.length) continue;
     any = true;
     h += `<div class="sec" style="margin-top:8px;font-weight:400">${md(dd)}</div>`;
-    for (const e of list) h += listItem(e, false);
+    for (const e of list) h += listItem(e, false, false, me);
   }
   if (!any) h += `<div class="empty-note">予定はありません</div>`;
   return h + '</div>';
 }
 // forStudent：生徒のページでは生徒名を繰り返さず、先生を見出しにする
-function listItem(e, withDate, forStudent) {
+// forTeacher：その先生から見た一覧（伴奏の時間を決めていれば、その時間を出す）
+function listItem(e, withDate, forStudent, forTeacher) {
   let st = '';
   if (e.status === 'cancel') st = e.makeup === 'pending' ? '<span class="tag bad">振替待ち</span>' : e.makeup === 'done' ? '<span class="tag ok">振替済み</span>' : '<span class="tag">キャンセル</span>';
   if (e.makeupOf) st += '<span class="tag ok">振替</span>';
   // メインの先生の色（生徒練習はグレー）で、行の左の線と、生徒の画面では先生の名前を色付けする
   const ts = teacherStyle(e);
-  return `<button class="li${e.status === 'cancel' ? ' cancel' : ''}${ts ? ' tc' : ''}" data-ev="${e.id}" style="${ts}"><span class="d">${withDate ? md(e.date) + ' ' : ''}${evTime(e)}</span>` +
+  return `<button class="li${e.status === 'cancel' ? ' cancel' : ''}${ts ? ' tc' : ''}" data-ev="${e.id}" style="${ts}"><span class="d">${withDate ? md(e.date) + ' ' : ''}${forTeacher && subTime(e, forTeacher) || evTime(e)}</span>` +
     `<span class="x">${forStudent ? `<span class="who">${esc(evWho(e))}</span>` : esc(evTitle(e))}${st}<br><small>${esc(whereText(e))}${forStudent ? '' : '・' + esc(evWho(e))}${e.memo ? '・' + esc(e.memo) : ''}</small></span></button>`;
 }
 
@@ -747,7 +754,7 @@ function studentPrint(s, fut, pend) {
     <table class="ptable"><thead><tr><th>日にち</th><th>時間</th><th>先生</th><th>部屋</th></tr></thead><tbody>`;
   for (const e of shown) {
     const ts = tOf(e);
-    h += `<tr><td>${md(e.date)}</td><td>${evTime(e)}</td><td>${e.type === 'spractice' ? '練習（先生なし）' : ts[0] ? esc(tFull(ts[0])) + ' 先生' : ''}${ts.length > 1 ? `<small>（伴奏 ${ts.slice(1).map(t => esc(tFull(t))).join('・')}）</small>` : ''}</td><td>${esc(whereText(e))}</td></tr>`;
+    h += `<tr><td>${md(e.date)}</td><td>${evTime(e)}</td><td>${e.type === 'spractice' ? '練習（先生なし）' : ts[0] ? esc(tFull(ts[0])) + ' 先生' : ''}${ts.length > 1 ? `<small>（伴奏 ${ts.slice(1).map(t => esc(tFull(t)) + (subTime(e, t) ? ' ' + subTime(e, t) : '')).join('・')}）</small>` : ''}</td><td>${esc(whereText(e))}</td></tr>`;
   }
   if (!shown.length) h += `<tr><td colspan="4">これからの予約はありません</td></tr>`;
   return h + `</tbody></table></div>`;
@@ -858,6 +865,8 @@ function openEditor(init) {
   D = {
     type: t, date: UI.view === 'my' ? UI.myDate : UI.date, start: 600, len: 30, allDay: false, rooms: ['R1'], teachers: isTeacherLogin() ? [UI.login] : [],
     studentId: null, groupId: '', group: '', title: '', place: '', memo: '', repeat: 'none', count: 8, applySeries: false,
+    // subs：伴奏・サブの先生が入る時間（{ 先生ID: { off, len } }。予定の始まりから off 分後に len 分。書いていない先生は予定の時間すべて）
+    subs: {},
     sq: '', krow: '', mineOnly: isTeacherLogin(), editing: null, makeupOf: null, seriesId: null,
     // 入れ方：dates＝日にちを選ぶ / weekly＝曜日で決める（1年分など）
     mode: 'dates', wks: [1, 2, 3, 4, 5], untilKind: 'fy', until: '', cont: null, ov: {}, yOpen: null,
@@ -873,7 +882,7 @@ function openEditor(init) {
   renderEditor(true);
 }
 const monthOf = d => d.slice(0, 8) + '01';
-const rowOf = o => ({ date: o.date, start: o.start, len: o.len, rooms: [...o.rooms], teachers: [...o.teachers] });
+const rowOf = o => ({ date: o.date, start: o.start, len: o.len, rooms: [...o.rooms], teachers: [...o.teachers], subs: { ...(o.subs || {}) } });
 // レッスン・グループの新規は、一画面で何回分か（月4回、続けてもう1コマ、など）を入れる
 const useRows = () => !D.editing && !!TYPES[D.type].rows && !useWeekly();
 // レッスン・グループの新規は、曜日・時間を決めて1年分などをまとめて入れることもできる（振替は除く）
@@ -898,7 +907,7 @@ function weeklyItems() {
     // 教室外の回は、回ごとに場所を変えられる（o.place。なければ上で選んだ場所）
     if (o.place != null && isOutside(ev)) ev.place = o.place;
     // 続けてもう1コマ（歌のあとにピアノ、など）。先生と長さは別に決め、部屋は既定で同じ
-    const ev2 = D.cont && D.type === 'lesson' ? { ...base, date: ev.date, start: endOf(ev), len: D.cont.len, teachers: [...D.cont.teachers], rooms: D.cont.room ? [D.cont.room] : [...ev.rooms] } : null;
+    const ev2 = D.cont && D.type === 'lesson' ? { ...base, date: ev.date, start: endOf(ev), len: D.cont.len, teachers: [...D.cont.teachers], subs: {}, rooms: D.cont.room ? [D.cont.room] : [...ev.rooms] } : null;
     out.push({ b, skip: o.skip ?? !!closedName(ev.date), moved: !!(o.date || o.start != null || o.room || o.place != null), ev, ev2, cs: [] });
   }
   return out;
@@ -976,7 +985,7 @@ function addRow(kind) {
   syncRow();
   const c = D.rows[D.cur];
   // 1週後：同じ時間・部屋・先生で1週あと。続けて：同じ日・同じ部屋で直後の30分（先生は選び直す。歌のあとにピアノ、など）
-  const r = kind === 'week' ? { ...rowOf(c), date: addDays(c.date, 7) } : { ...rowOf(c), start: endOf(c), len: 30, teachers: [] };
+  const r = kind === 'week' ? { ...rowOf(c), date: addDays(c.date, 7) } : { ...rowOf(c), start: endOf(c), len: 30, teachers: [], subs: {} };
   if (r.start + r.len > DAY_END) return toastMsg('21時を過ぎるため、続けて入れられません');
   D.rows.push(r); loadRow(D.rows.length - 1);
 }
@@ -991,6 +1000,8 @@ function normalizeDraft() {
   else if (T.rooms === 'one') D.rooms = T.outside && !D.rooms.length ? [] : [D.rooms.find(r => all.includes(r)) || 'R1'];
   else if (T.rooms === 'multi' && !D.rooms.length) D.rooms = all;
   if (T.teachers === 'none') D.teachers = [];
+  // 伴奏の時間は、伴奏・サブとして選んでいる先生の分だけ持つ
+  D.subs = T.teachers === 'mainsub' ? Object.fromEntries(Object.entries(D.subs || {}).filter(([t]) => D.teachers.slice(1).includes(t))) : {};
   if (T.teachers === 'one') D.teachers = D.teachers.slice(0, 1);
   if (!T.allDay) D.allDay = false;
   if (T.onlyAllDay) D.allDay = true;
@@ -1003,7 +1014,7 @@ function draftEvent() {
   const T = TYPES[D.type];
   const e = {
     type: D.type, date: D.date, allDay: !!D.allDay, start: D.allDay ? DAY_START : D.start, len: D.allDay ? DAY_END - DAY_START : D.len,
-    rooms: [...D.rooms], teachers: [...D.teachers], studentId: T.student ? D.studentId : null,
+    rooms: [...D.rooms], teachers: [...D.teachers], subs: T.teachers === 'mainsub' ? { ...D.subs } : {}, studentId: T.student ? D.studentId : null,
     groupId: T.group && !D.groupFree ? D.groupId : '', group: T.group ? (D.groupFree ? D.group.trim() : GMAP.has(D.groupId) ? GMAP.get(D.groupId).name : '') : '', title: T.title ? D.title.trim() : '', place: '', memo: D.memo.trim(),
   };
   if (D.editing) e.id = D.editing;
@@ -1064,6 +1075,11 @@ function validate() {
   if (T.teachers === 'mainsub' && !D.teachers.length) return 'メインの先生を選んでください';
   if (T.teachers === 'mainsub' && useRows() && draftEvents().some(e => !e.teachers.length)) return '先生を選んでいない回があります';
   if ((T.teachers === 'one' || D.type === 'out' || D.type === 'practice') && !D.teachers.length) return '先生を選んでください';
+  // 時間や長さを変えて、伴奏の時間が予定の中に入らなくなったら、直してもらう（黙って縮めない）
+  for (const e of useRows() ? draftEvents() : [draftEvent()]) {
+    const t = Object.keys(e.subs || {}).find(t => e.subs[t].off + e.subs[t].len > endOf(e) - e.start);
+    if (t) return `${tName(t)}先生の伴奏の時間（${subTime(e, t)}）が、予定の時間（${evTime(e)}）からはみ出しています。伴奏の時間を直してください`;
+  }
   if (useWeekly()) {
     const its = weeklyItems().filter(it => !it.skip);
     if (!its.length) return '入れる日がありません';
@@ -1198,7 +1214,7 @@ function renderEditor(first) {
   }
   if (T.teachers === 'mainsub') {
     h += `<div class="fld"><span class="lab">メインの先生</span><div class="opts">${activeTeachers().map(t => teacherOpt(t, D.teachers[0] === t.id, 'main')).join('')}</div></div>`;
-    if (D.teachers[0]) h += `<div class="fld"><span class="lab">伴奏・サブ（なしでも可）</span><div class="opts">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => teacherOpt(t, D.teachers.slice(1).includes(t.id), 'sub')).join('')}</div></div>`;
+    if (D.teachers[0]) h += `<div class="fld"><span class="lab">伴奏・サブ（なしでも可）</span><div class="opts">${activeTeachers().filter(t => t.id !== D.teachers[0]).map(t => teacherOpt(t, D.teachers.slice(1).includes(t.id), 'sub')).join('')}</div>${D.teachers.slice(1).map(subRow).join('')}</div>`;
   } else if (T.teachers !== 'none') {
     const lab = T.teachers === 'one' ? '先生' : D.type === 'event' || D.type === 'record' ? '関わる先生（なしでも可）' : '先生（複数選べます）';
     h += `<div class="fld"><span class="lab">${lab}</span><div class="opts">${activeTeachers().map(t => teacherOpt(t, D.teachers.includes(t.id), 'tch')).join('')}</div></div>`;
@@ -1237,6 +1253,18 @@ function groupField() {
     `<div class="csub" style="margin-top:4px">その場かぎりのグループに使います。継続的に使いたいグループは、真梨子先生に伝えてください</div>`;
   return h + `</div>`;
 }
+// 伴奏・サブの先生が入る時間：「全部」（既定）か「時間を指定」。指定するときは、予定の枠の中で始まりと終わりを選ぶ
+function subRow(tid) {
+  const p = D.subs[tid], span = endOf(D) - D.start;
+  let h = `<div class="subrow"><b>${esc(tName(tid))}</b><button class="opt${p ? '' : ' on'}" data-e="subAll" data-v="${tid}">全部</button>` +
+    `<button class="opt${p ? ' on' : ''}" data-e="subPart" data-v="${tid}"${span <= SLOT ? ' disabled title="30分の予定は全部だけです"' : ''}>時間を指定</button>`;
+  if (p) {
+    const a = D.start + p.off, b = a + p.len;
+    h += `<select class="inp" data-f="subS" data-t="${tid}">${range(D.start, D.start + span - SLOT).map(m => `<option value="${m}"${m === a ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>〜` +
+      `<select class="inp" data-f="subE" data-t="${tid}">${range(D.start + SLOT, Math.max(D.start + span, b)).map(m => `<option value="${m}"${m === b ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>`;
+  }
+  return h + `</div>`;
+}
 function teacherOpt(t, on, e) {
   const busy = !on && teacherBusy(t.id);
   return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="--cf:${t.fg}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
@@ -1256,7 +1284,7 @@ function nextFutureOfStudent(sid) {
 }
 // 予定をAPIに送るときの形（画面だけで使う項目は送らない）
 const wire = e => ({ id: e.id, type: e.type, date: e.date, start: e.start, len: e.len, allDay: !!e.allDay, rooms: e.rooms, teachers: e.teachers,
-  studentId: e.studentId || null, groupId: e.groupId || '', group: e.groupId ? '' : e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+  subs: e.subs || {}, studentId: e.studentId || null, groupId: e.groupId || '', group: e.groupId ? '' : e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
 function saveDraft() {
   if (validate() || D.saving) return;
   if (useWeekly()) return saveWeekly();
@@ -1313,6 +1341,7 @@ const TIPS = [
   ['体験レッスン', '入会前の人は、予定の種類で「体験」を選んで入れます（「生徒」の画面の「＋ 体験を入れる」からも入れられます）。来なかった・取り消しになったときは削除します。'],
   ['すぐ予約を入れる', '「生徒」の画面で、生徒やグループのボタンを長押し（パソコンは右クリック）すると、予定の一覧を開かずに、すぐ予約を入れられます。'],
   ['グループレッスン', '「生徒」の画面の上に並んでいるグループを押し、「＋ 予約を入れる」から入れます。グループの追加・名前の変更・終了は、教室が予約スプレッドシートの「グループ」シートで行います。'],
+  ['伴奏・サブが一部の時間だけのとき', '予約の入力で伴奏・サブの先生を選ぶと「全部／時間を指定」が出ます。「時間を指定」で入る時間を選ぶと、残りの時間にはその先生の別の予定を入れられます。'],
   ['生徒が部屋で練習するとき', '生徒の画面の「＋ 予約を入れる」で、種類を「生徒練習」にします。先生は入れず、部屋だけを押さえます（表ではグレーで出ます）。'],
   ['入会した日', '「生徒」の画面の「＋ 新しい生徒を登録」で名前だけ登録し、返信のメールが届いたら「生徒の一覧を読み直す」を押して予約を入れます。住所などはあとで名簿のフォームから入れます。'],
   ['定期の予定を変えるとき', '「変更する」で「この日以降の同じ定期もまとめて変更する」にチェックを入れると、先の回もまとめて変わります。'],
@@ -1333,7 +1362,7 @@ function saveWeekly() {
   mutate('add', { events }, `${its.length}回分を入れました（${md(f.date)}〜${md(l.date)}）`);
 }
 function nextFrom(e) {
-  openEditor({ type: e.type, date: addDays(e.date, 7), start: e.start, len: e.len, allDay: e.allDay, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '', types: typesFor(e.type) });
+  openEditor({ type: e.type, date: addDays(e.date, 7), start: e.start, len: e.len, allDay: e.allDay, rooms: [...e.rooms], teachers: [...e.teachers], subs: { ...(e.subs || {}) }, studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '', types: typesFor(e.type) });
 }
 
 /* ===== 詳細・キャンセル ===== */
@@ -1342,7 +1371,7 @@ function openDetail(id) {
   if (!e) return;
   const T = TYPES[e.type], ts = tOf(e);
   let who = '';
-  if (T.teachers === 'mainsub') who = (ts[0] ? esc(tFull(ts[0])) + '先生（メイン）' : '未定') + (ts.length > 1 ? '<br>' + ts.slice(1).map(t => esc(tFull(t)) + '先生（伴奏）').join('<br>') : '');
+  if (T.teachers === 'mainsub') who = (ts[0] ? esc(tFull(ts[0])) + '先生（メイン）' : '未定') + (ts.length > 1 ? '<br>' + ts.slice(1).map(t => esc(tFull(t)) + '先生（伴奏' + (subTime(e, t) ? ' ' + subTime(e, t) : '') + '）').join('<br>') : '');
   else who = ts.map(t => esc(tFull(t)) + '先生').join('・') || '—';
   let status = '予定どおり';
   if (e.status === 'cancel') status = `キャンセル（${esc(e.cancelReason || '')}）` + (e.makeup === 'pending' ? ' <span class="tag bad">振替待ち</span>' : e.makeup === 'done' ? ` <span class="tag ok">振替済み</span>` : ' 振替なし');
@@ -1396,7 +1425,7 @@ function doCancel(id, mode) {
   mutate('cancel', { id, reason: CR, makeup: mode === 'none' ? 'none' : 'pending' }, 'キャンセルしました', mode === 'now' ? () => openMakeup(getEv(id)) : null);
 }
 function openMakeup(e) {
-  openEditor({ type: e.type, date: e.date, start: e.start, len: e.len, rooms: [...e.rooms], teachers: [...e.teachers], studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', place: e.place || '', memo: '', types: 'fixed', makeupOf: e.id });
+  openEditor({ type: e.type, date: e.date, start: e.start, len: e.len, rooms: [...e.rooms], teachers: [...e.teachers], subs: { ...(e.subs || {}) }, studentId: e.studentId, groupId: e.groupId || '', group: e.group || '', place: e.place || '', memo: '', types: 'fixed', makeupOf: e.id });
 }
 
 /* ===== シート・トースト・メニュー ===== */
@@ -1789,6 +1818,13 @@ document.addEventListener('change', ev => {
     if (f === 'len' || f === 'count') { D[f] = +t.value; normalizeDraft(); }
     else if (f === 'allDay' || f === 'applySeries') D[f] = t.checked;
     else if (f === 'until') { if (t.value) { D.until = t.value; D.untilKind = 'custom'; } }
+    // 伴奏の時間：始まりを変えたら終わりはそのまま（始まりより前なら30分後）、終わりを変えたら長さを変える
+    else if (f === 'subS' || f === 'subE') {
+      const tid = t.dataset.t, p = D.subs[tid], v = +t.value;
+      if (!p) return;
+      const a = D.start + p.off, b = a + p.len;
+      D.subs = { ...D.subs, [tid]: f === 'subS' ? { off: v - D.start, len: Math.max(SLOT, b - v) } : { off: p.off, len: Math.max(SLOT, v - a) } };
+    }
     else if (f === 'ovDate' || f === 'ovStart' || f === 'ovRoom' || f === 'ovPlace' || f === 'ovPlaceText') {
       const b = t.dataset.b, o = { ...D.ov[b] };
       if (f === 'ovDate') { if (!t.value) return; o.date = t.value === b ? undefined : t.value; }
@@ -1910,8 +1946,11 @@ function sheetAction(e, v, el) {
       else D.rooms = D.rooms.includes(v) ? D.rooms.filter(r => r !== v) : [...D.rooms, v].sort();
       break;
     case 'allRooms': D.rooms = D.rooms.length === ROOMS.length ? [] : ROOMS.map(r => r.id); break;
-    case 'main': D.teachers = [v, ...D.teachers.slice(1).filter(t => t !== v)]; break;
-    case 'sub': { const subs = D.teachers.slice(1); D.teachers = [D.teachers[0], ...(subs.includes(v) ? subs.filter(t => t !== v) : [...subs, v])]; break; }
+    case 'main': D.teachers = [v, ...D.teachers.slice(1).filter(t => t !== v)]; normalizeDraft(); break;
+    case 'sub': { const subs = D.teachers.slice(1); D.teachers = [D.teachers[0], ...(subs.includes(v) ? subs.filter(t => t !== v) : [...subs, v])]; normalizeDraft(); break; }
+    case 'subAll': { const o = { ...D.subs }; delete o[v]; D.subs = o; break; }
+    // 時間を指定：最初は、予定の始まりから最後の30分を除いた時間（あとで選び直す）
+    case 'subPart': { const span = endOf(D) - D.start; if (span > SLOT) D.subs = { ...D.subs, [v]: { off: 0, len: span - SLOT } }; break; }
     case 'tch':
       if (TYPES[D.type].teachers === 'one') D.teachers = [v];
       else D.teachers = D.teachers.includes(v) ? D.teachers.filter(t => t !== v) : [...D.teachers, v];
