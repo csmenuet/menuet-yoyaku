@@ -834,7 +834,8 @@ function groupList() {
   const gs = activeGroups();
   if (!gs.length) return '';
   return `<div class="sec" style="margin-top:0">グループ</div><div class="slist" style="margin-bottom:12px">${gs.map(g => `<button class="sbtn" data-sp="g${g.id}" title="${QUICK_TIP}">${esc(g.name)}` +
-    `${isTeacherLogin() && g.teachers.includes(UI.login) ? ' <span class="me">自分</span>' : ''}</button>`).join('')}</div>` +
+    `${isTeacherLogin() && g.teachers.includes(UI.login) ? ' <span class="me">自分</span>' : ''}</button>`).join('')}` +
+    `<button class="sbtn" data-act="newFreeGroup" title="グループシートにないグループの予約を、名前を書いて入れる">＋ その他のグループ</button></div>` +
     `<div class="sec">生徒</div>`;
 }
 function bindStudentSearch() {
@@ -856,6 +857,8 @@ function openEditor(init) {
     // lockSubject：生徒・グループを変えない（生徒・グループの画面から開いたとき）
     types: 'all', lockSubject: false, ...init,
   };
+  // groupFree：グループシートにないグループ（その場で名前を書く）。名前だけの予定を直すときも、こちらにする
+  D.groupFree = !!TYPES[D.type].group && (!!D.groupFree || (!GMAP.has(D.groupId) && !!D.group));
   normalizeDraft();
   // 回ごとの日時・部屋・先生（rows）。今選んでいる回（cur）の値は D.date・D.start などに出しておく
   D.rows = [rowOf(D)]; D.cur = 0; D.calM = monthOf(D.date);
@@ -993,7 +996,7 @@ function draftEvent() {
   const e = {
     type: D.type, date: D.date, allDay: !!D.allDay, start: D.allDay ? DAY_START : D.start, len: D.allDay ? DAY_END - DAY_START : D.len,
     rooms: [...D.rooms], teachers: [...D.teachers], studentId: T.student ? D.studentId : null,
-    groupId: T.group ? D.groupId : '', group: T.group && GMAP.has(D.groupId) ? GMAP.get(D.groupId).name : '', title: T.title ? D.title.trim() : '', place: '', memo: D.memo.trim(),
+    groupId: T.group && !D.groupFree ? D.groupId : '', group: T.group ? (D.groupFree ? D.group.trim() : GMAP.has(D.groupId) ? GMAP.get(D.groupId).name : '') : '', title: T.title ? D.title.trim() : '', place: '', memo: D.memo.trim(),
   };
   if (D.editing) e.id = D.editing;
   return withPlace(e);
@@ -1048,7 +1051,7 @@ function validate() {
   const [f, t] = draftSpan();
   if (!needForDraft(f, t)) return failedRecently() ? '予定を読み込めませんでした。閉じてもう一度開いてください' : '予定を読み込んでいます…';
   if (T.student && !D.studentId) return '生徒を選んでください';
-  if (T.group && !GMAP.has(D.groupId)) return 'グループを選んでください';
+  if (T.group && (D.groupFree ? !D.group.trim() : !GMAP.has(D.groupId))) return D.groupFree ? 'グループの名前を書いてください' : 'グループを選んでください';
   if ((T.rooms === 'one' || T.rooms === 'multi') && !T.outside) if (!D.rooms.length) return '部屋を選んでください';
   if (T.teachers === 'mainsub' && !D.teachers.length) return 'メインの先生を選んでください';
   if (T.teachers === 'mainsub' && useRows() && draftEvents().some(e => !e.teachers.length)) return '先生を選んでいない回があります';
@@ -1212,15 +1215,17 @@ function placePicker(hint) {
 const OTHER_TYPES = Object.keys(TYPES).filter(k => !['lesson', 'group', 'trial'].includes(k));
 // 予定から開くとき（次回・振替・変更）に選べる種類：ほかの予定どうしでは変えられ、レッスン・グループ・体験は変えない
 const typesFor = type => OTHER_TYPES.includes(type) ? 'other' : 'fixed';
-// グループはグループシートの一覧から選ぶ（終了したグループは、その予定を直すときだけ出す）
+// グループはグループシートの一覧から選ぶ（終了したグループは、その予定を直すときだけ出す）。
+// 一覧にないグループは「その他」で名前を書く（グループIDなし。予定の「グループ名」にだけ入る）
 function groupField() {
   const cur = GMAP.get(D.groupId), gs = activeGroups();
   if (D.lockSubject && cur) return `<div class="fld"><span class="lab">グループ</span><div class="picked"><b>${esc(cur.name)}</b></div></div>`;
   if (cur && !cur.active) gs.push(cur);
   let h = `<div class="fld"><span class="lab">グループ</span>`;
-  if (!gs.length) return h + `<div class="msg info">グループがまだありません。予約スプレッドシートの「グループ」シートに足してから、メニューの「最新の予定と生徒を読み直す」を押してください</div></div>`;
-  h += `<div class="opts">${gs.map(g => `<button class="opt${D.groupId === g.id ? ' on' : ''}" data-e="grp" data-v="${g.id}">${esc(g.name)}</button>`).join('')}</div>`;
-  if (!cur && D.group) h += `<div class="csub" style="margin-top:4px">入れたときの名前：「${esc(D.group)}」。一覧から選び直してください</div>`;
+  h += `<div class="opts">${gs.map(g => `<button class="opt${!D.groupFree && D.groupId === g.id ? ' on' : ''}" data-e="grp" data-v="${g.id}">${esc(g.name)}</button>`).join('')}` +
+    `<button class="opt${D.groupFree ? ' on' : ''}" data-e="grpFree">その他（名前を書く）</button></div>`;
+  if (D.groupFree) h += `<input class="inp wide" style="margin-top:6px" data-f="groupText" value="${esc(D.group)}" placeholder="グループの名前（例：クリスマス合唱）">` +
+    `<div class="csub" style="margin-top:4px">その場かぎりのグループに使います。継続的に使いたいグループは、真梨子先生に伝えてください</div>`;
   return h + `</div>`;
 }
 function teacherOpt(t, on, e) {
@@ -1242,7 +1247,7 @@ function nextFutureOfStudent(sid) {
 }
 // 予定をAPIに送るときの形（画面だけで使う項目は送らない）
 const wire = e => ({ id: e.id, type: e.type, date: e.date, start: e.start, len: e.len, allDay: !!e.allDay, rooms: e.rooms, teachers: e.teachers,
-  studentId: e.studentId || null, groupId: e.groupId || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
+  studentId: e.studentId || null, groupId: e.groupId || '', group: e.groupId ? '' : e.group || '', title: e.title || '', place: e.place || '', memo: e.memo || '' });
 function saveDraft() {
   if (validate() || D.saving) return;
   if (useWeekly()) return saveWeekly();
@@ -1744,6 +1749,7 @@ document.addEventListener('click', ev => {
     case 'sMonThis': UI.sMonth = today().slice(0, 8) + '01'; break;
     case 'newFor': return quickNew(a.dataset.id);
     case 'newTrial': return openEditor({ type: 'trial', date: today(), types: 'fixed' });
+    case 'newFreeGroup': { openEditor({ type: 'group', date: today(), types: 'fixed', groupFree: true }); const x = $('#sheet [data-f="groupText"]'); if (x) x.focus(); return; }
     case 'newOther': return openEditor({ type: OTHER_TYPES[0], date: today(), types: 'other' });
     case 'help': return openHelp();
     case 'bExit': if (document.fullscreenElement) document.exitFullscreen(); return setView('day');
@@ -1798,6 +1804,7 @@ document.addEventListener('input', ev => {
   const f = t.dataset.f;
   if (f === 'sq') { D.sq = t.value; $('#epick').innerHTML = studentPicker(D.sq, D.krow, D.mineOnly, 'ep'); return; }
   if (['title', 'place', 'memo'].includes(f)) { D[f] = t.value; updateCheck(); }
+  if (f === 'groupText') { D.group = t.value; updateCheck(); }
   // ずらす回の場所を書いているとき（選ぶ欄に戻すのは、書き終えたとき＝change）
   if (f === 'ovPlaceText') D.ov[t.dataset.b] = { ...D.ov[t.dataset.b], place: t.value.trim() };
 });
@@ -1882,7 +1889,8 @@ function sheetAction(e, v, el) {
       if (TYPES[v].teachers === 'mainsub' && !D.teachers.length && isTeacherLogin()) D.teachers = [UI.login];
       normalizeDraft(); break;
     case 'clearS': D.studentId = null; break;
-    case 'grp': D.groupId = v; if (!D.editing && !D.makeupOf) suggestForGroup(v); break;
+    case 'grp': D.groupId = v; D.groupFree = false; if (!D.editing && !D.makeupOf) suggestForGroup(v); break;
+    case 'grpFree': D.groupFree = true; D.groupId = ''; renderEditor(); { const x = $('#sheet [data-f="groupText"]'); if (x) x.focus(); } return;
     case 'start': D.start = +v; normalizeDraft(); break;
     case 'len': D.len = +v; normalizeDraft(); break;
     case 'room':
