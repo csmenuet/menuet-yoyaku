@@ -9,6 +9,10 @@ const PALETTE = ['#1d4ed8', '#be123c', '#15803d', '#a16207', '#7e22ce', '#0e7490
 let ROOMS = [], TEACHERS = [], TMAP = new Map(), STUDENTS = [], SMAP = new Map(), GROUPS = [], GMAP = new Map();
 // 教室外の場所の候補（予約スプレッドシートの「場所」シート。候補にない場所も文字で入れられる）
 let PLACES = [];
+// 録音の伴奏で選べる、先生ではない人（予約スプレッドシートの「録音の伴奏」シート。候補にない人も名前を書ける）
+let ACCOMPS = [];
+// 録音を入れるとき、最初からメインに選んでおく先生（設定シートの「録音のメインの先生」）
+let RECORD_MAIN = '';
 // 色（#rrggbb）を白と混ぜて、枠の背景に使う薄い色を作る
 function tint(hex, k) {
   const n = parseInt(hex.slice(1), 16), mix = c => Math.round(c + (255 - c) * k);
@@ -47,6 +51,8 @@ function setMaster(d) {
   // home：いつもの部屋・場所（{ rooms: ['R3'] } か、教室外なら { rooms: [], place: '分館' }。決めていなければ null）
   GROUPS = (d.groups || []).map(g => ({ id: g.id, name: g.name, teachers: g.teachers || [], active: g.active !== false, home: g.home || null }));
   PLACES = d.places || [];
+  ACCOMPS = d.accompanists || [];
+  RECORD_MAIN = d.recordMain || '';
   GMAP = new Map(GROUPS.map(g => [g.id, g]));
 }
 // 予約の選択肢に出す先生（在籍）と生徒（在籍・休会）
@@ -56,6 +62,7 @@ const isBookable = s => s.status === '在籍' || s.status === '休会';
 // rooms: one=1部屋 / multi=複数（既定は全部屋） / opt=なしも可 / none=部屋なし
 // teachers: mainsub=メイン＋伴奏 / multi=複数 / one=1人 / none
 // outside: 部屋の代わりに「教室外」も選べる（部屋なし＋場所。部屋のぶつかりは見ず、先生のぶつかりだけ見る）
+// accomp: 伴奏・サブに、先生ではない人（録音の伴奏シートの人）も選べる（録音）
 // allRooms: 1部屋の種類で、「全部屋」も選べる（合宿のときのグループなど） / allDay: 終日にできる
 const TYPES = {
   lesson:   { label: 'レッスン', rooms: 'one',   teachers: 'mainsub', student: true, rows: true },
@@ -66,7 +73,7 @@ const TYPES = {
   practice: { label: '先生練習', rooms: 'one',   teachers: 'multi', title: true, repeat: true },
   // 生徒練習：生徒が先生なしで部屋だけ使う（部屋代がかかるので、レッスンとは分けて持つ）。グループの練習はない
   spractice: { label: '生徒練習', rooms: 'one',  teachers: 'none', student: true, rows: true },
-  record:   { label: '録音',     rooms: 'multi', teachers: 'multi', title: true },
+  record:   { label: '録音',     rooms: 'multi', teachers: 'mainsub', title: true, accomp: true },
   clean:    { label: '掃除',     rooms: 'multi', teachers: 'none', title: true, repeat: true },
   event:    { label: '行事',     rooms: 'opt',   teachers: 'multi', title: true, allDay: true },
   out:      { label: '教室外',   rooms: 'none',  teachers: 'multi', place: true, repeat: true },
@@ -196,9 +203,15 @@ const hideWho = e => e.type === 'event';
 function evWho(e) {
   const ts = tOf(e);
   if (e.type === 'spractice') return '練習';
-  if (TYPES[e.type].teachers === 'mainsub') return ts.length ? tName(ts[0]) + (ts.length > 1 ? ' / 伴 ' + ts.slice(1).map(t => tName(t) + (subTime(e, t) ? ' ' + subTime(e, t) : '')).join('・') : '') : '先生未定';
+  // 伴奏は、伴奏の先生のあとに先生ではない人（録音）を続ける
+  const subs = [...ts.slice(1).map(t => tName(t) + (subTime(e, t) ? ' ' + subTime(e, t) : '')), ...(e.accomp || [])];
+  if (TYPES[e.type].teachers === 'mainsub') return ts.length ? tName(ts[0]) + (subs.length ? ' / 伴 ' + subs.join('・') : '') : subs.length ? '伴 ' + subs.join('・') : '先生未定';
   return ts.map(tName).join('・');
 }
+// 小さい枠に出す、担当の全員の名前（グループ・録音。先生のあとに先生以外の伴奏の人）
+const shortWho = e => [...tOf(e).map(tName), ...(e.accomp || [])].join('・');
+// 枠に担当の全員を出す種類（ほかの種類はメインの先生だけ）
+const whoAll = e => e.type === 'group' || e.type === 'record';
 const evTime = e => e.allDay ? '終日' : `${hm(e.start)}–${hm(e.start + e.len)}`;
 // 先生の色の CSS 変数：--c 背景、--cf 文字、--cb 線
 const tcStyle = t => `--c:${t.bg};--cf:${t.fg};--cb:${t.bar};`;
@@ -287,8 +300,8 @@ function monthDay(d, R, out, fold, noLine, noNow) {
       let a = idx[0];
       for (let k = 1; k <= idx.length; k++) {
         if (k === idx.length || idx[k] !== idx[k - 1] + 1) {
-          // グループで2部屋以上にまたがる枠（全部屋の合宿など）は、横に余白があるので担当の先生も添える
-          const txt = shortTitle(e) + (e.type === 'group' && idx[k - 1] > a && tOf(e).length ? ' ' + tOf(e).map(tName).join('・') : '');
+          // グループ・録音で2部屋以上にまたがる枠（全部屋の合宿・録音など）は、横に余白があるので担当の全員も添える
+          const txt = shortTitle(e) + (whoAll(e) && idx[k - 1] > a && shortWho(e) ? ' ' + shortWho(e) : '');
           h += `<div class="mev t-${e.type}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${off + a + 1}/${off + idx[k - 1] + 2};grid-row:${(a0 - base) / SLOT + 2}/span ${(a1 - a0) / SLOT};${teacherStyle(e)}">${esc(txt)}</div>`;
           a = idx[k];
         }
