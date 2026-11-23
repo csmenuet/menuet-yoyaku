@@ -56,9 +56,11 @@ const isBookable = s => s.status === '在籍' || s.status === '休会';
 // rooms: one=1部屋 / multi=複数（既定は全部屋） / opt=なしも可 / none=部屋なし
 // teachers: mainsub=メイン＋伴奏 / multi=複数 / one=1人 / none
 // outside: 部屋の代わりに「教室外」も選べる（部屋なし＋場所。部屋のぶつかりは見ず、先生のぶつかりだけ見る）
+// allRooms: 1部屋の種類で、「全部屋」も選べる（合宿のときのグループなど） / allDay: 終日にできる
 const TYPES = {
   lesson:   { label: 'レッスン', rooms: 'one',   teachers: 'mainsub', student: true, rows: true },
-  group:    { label: 'グループ', rooms: 'one',   teachers: 'mainsub', group: true, rows: true, outside: true },
+  // グループの「内容」（任意）：合宿など、いつもと違う回だとわかるように、グループ名のあとに添える
+  group:    { label: 'グループ', rooms: 'one',   teachers: 'mainsub', group: true, rows: true, outside: true, allRooms: true, allDay: true, title: true, titleLabel: '内容（任意）', titleHint: '例：合宿' },
   // 体験：入会前の人の1回だけのレッスン。生徒ではないので、名前（任意・わかる範囲）を文字で持つ
   trial:    { label: '体験',     rooms: 'one',   teachers: 'mainsub', title: true, titleLabel: '申し込んだ人の名前（任意）', titleHint: '例：やまだ（わかる範囲で）' },
   practice: { label: '先生練習', rooms: 'one',   teachers: 'multi', title: true, repeat: true },
@@ -182,7 +184,7 @@ const getEv = id => S.events.find(e => e.id === id);
 /* ===== 表示用の文字 ===== */
 function evTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId) || '（生徒未定）';
-  if (e.type === 'group') return gName(e);
+  if (e.type === 'group') return gName(e) + (e.title ? ' ' + e.title : '');
   if (e.type === 'trial') return e.title ? `体験 ${e.title}` : '体験';
   if (e.type === 'spractice') return sName(e.studentId) || '（生徒未定）';
   if (e.type === 'out') return e.place || '教室外';
@@ -208,7 +210,7 @@ function teacherStyle(e) {
 }
 function shortTitle(e) {
   if (e.type === 'lesson') return sName(e.studentId).split('　')[0] || '？';
-  if (e.type === 'group') return gName(e);
+  if (e.type === 'group') return evTitle(e);
   if (e.type === 'trial') return '体験';
   if (e.type === 'spractice') return sName(e.studentId).split('　')[0] || '？';
   return evTitle(e);
@@ -285,7 +287,9 @@ function monthDay(d, R, out, fold, noLine, noNow) {
       let a = idx[0];
       for (let k = 1; k <= idx.length; k++) {
         if (k === idx.length || idx[k] !== idx[k - 1] + 1) {
-          h += `<div class="mev t-${e.type}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${off + a + 1}/${off + idx[k - 1] + 2};grid-row:${(a0 - base) / SLOT + 2}/span ${(a1 - a0) / SLOT};${teacherStyle(e)}">${esc(shortTitle(e))}</div>`;
+          // グループで2部屋以上にまたがる枠（全部屋の合宿など）は、横に余白があるので担当の先生も添える
+          const txt = shortTitle(e) + (e.type === 'group' && idx[k - 1] > a && tOf(e).length ? ' ' + tOf(e).map(tName).join('・') : '');
+          h += `<div class="mev t-${e.type}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${off + a + 1}/${off + idx[k - 1] + 2};grid-row:${(a0 - base) / SLOT + 2}/span ${(a1 - a0) / SLOT};${teacherStyle(e)}">${esc(txt)}</div>`;
           a = idx[k];
         }
       }

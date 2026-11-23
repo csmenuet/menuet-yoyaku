@@ -579,7 +579,7 @@ function weekAllGrid(ws, days) {
           const cls = ['ev', 'wev', 't-' + e.type];
           if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
           h += `<div class="${cls.join(' ')}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${c0 + a}/${c0 + idx[k - 1] + 1};${row};${teacherStyle(e)}">` +
-            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length && !hideWho(e) ? `<div class="ev-s">${esc(tName(tOf(e)[0]))}</div>` : ''}</div>`;
+            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length && !hideWho(e) ? `<div class="ev-s">${esc(e.type === 'group' ? tOf(e).map(tName).join('・') : tName(tOf(e)[0]))}</div>` : ''}</div>`;
           a = idx[k];
         }
       }
@@ -899,7 +899,8 @@ function weeklyItems() {
   for (let b = D.date; b <= until; b = addDays(b, 7)) {
     if (!D.wks.includes(Math.ceil(pd(b).getDate() / 7))) continue;
     const o = D.ov[b] || {};
-    const ev = withPlace({ ...base, date: o.date || b, start: o.start ?? base.start, rooms: o.room === 'OUT' ? [] : o.room ? [o.room] : [...base.rooms] });
+    const ev = withPlace({ ...base, date: o.date || b, start: D.allDay ? base.start : o.start ?? base.start,
+      rooms: o.room === 'OUT' ? [] : o.room === 'ALL' ? ROOMS.map(r => r.id) : o.room ? [o.room] : [...base.rooms] });
     // 教室外の回は、回ごとに場所を変えられる（o.place。なければ上で選んだ場所）
     if (o.place != null && isOutside(ev)) ev.place = o.place;
     // 続けてもう1コマ（歌のあとにピアノ、など）。先生と長さは別に決め、部屋は既定で同じ
@@ -960,8 +961,8 @@ function weeklyRow(it) {
     `<button class="btn small" data-e="yOpen" data-v="${D.yOpen === it.b ? '' : it.b}">ずらす</button><button class="btn small" data-e="ySkip" data-v="${it.b}">${it.skip ? '戻す' : 'なし'}</button></div>`;
   if (D.yOpen === it.b) {
     h += `<div class="yedit"><span>変更後</span><input class="inp" type="date" data-f="ovDate" data-b="${it.b}" value="${e.date}">
-      <select class="inp" data-f="ovStart" data-b="${it.b}">${range(DAY_START, DAY_END - SLOT).map(m => `<option value="${m}"${m === e.start ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>
-      <select class="inp" data-f="ovRoom" data-b="${it.b}">${ROOMS.map(r => `<option value="${r.id}"${r.id === e.rooms[0] ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}${TYPES[e.type].outside ? `<option value="OUT"${isOutside(e) ? ' selected' : ''}>教室外</option>` : ''}</select>
+      ${D.allDay ? '' : `<select class="inp" data-f="ovStart" data-b="${it.b}">${range(DAY_START, DAY_END - SLOT).map(m => `<option value="${m}"${m === e.start ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>`}
+      <select class="inp" data-f="ovRoom" data-b="${it.b}">${ROOMS.map(r => `<option value="${r.id}"${!isAll(e.rooms) && r.id === e.rooms[0] ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}${TYPES[e.type].allRooms ? `<option value="ALL"${isAll(e.rooms) ? ' selected' : ''}>全部屋</option>` : ''}${TYPES[e.type].outside ? `<option value="OUT"${isOutside(e) ? ' selected' : ''}>教室外</option>` : ''}</select>
       ${isOutside(e) ? ovPlaceField(it.b, e.place) : ''}
       <button class="btn small" data-e="yReset" data-v="${it.b}">元に戻す</button></div>`;
   }
@@ -993,7 +994,7 @@ function removeRow(i) {
 function normalizeDraft() {
   const T = TYPES[D.type], all = ROOMS.map(r => r.id);
   if (T.rooms === 'none') D.rooms = [];
-  else if (T.rooms === 'one') D.rooms = T.outside && !D.rooms.length ? [] : [D.rooms.find(r => all.includes(r)) || 'R1'];
+  else if (T.rooms === 'one') D.rooms = T.outside && !D.rooms.length ? [] : T.allRooms && isAll(D.rooms) ? all : [D.rooms.find(r => all.includes(r)) || 'R1'];
   else if (T.rooms === 'multi' && !D.rooms.length) D.rooms = all;
   if (T.teachers === 'none') D.teachers = [];
   // 伴奏の時間は、伴奏・サブとして選んでいる先生の分だけ持つ
@@ -1001,6 +1002,8 @@ function normalizeDraft() {
   if (T.teachers === 'one') D.teachers = D.teachers.slice(0, 1);
   if (!T.allDay) D.allDay = false;
   if (T.onlyAllDay) D.allDay = true;
+  // 終日の予定では、伴奏・サブの先生も1日すべて入る（時間を指定しない）
+  if (D.allDay) D.subs = {};
   if (!T.repeat) D.repeat = 'none';
   // 45分はレッスンだけ。ほかの種類では30分単位に切り上げる
   if (D.type !== 'lesson' && D.len % SLOT) D.len = Math.ceil(D.len / SLOT) * SLOT;
@@ -1024,7 +1027,8 @@ function draftEvents() {
   const base = draftEvent();
   if (!useRows()) return [base];
   syncRow();
-  return D.rows.map(r => withPlace({ ...base, ...rowOf(r) }));
+  // 終日なら、回ごとの時間ではなく1日すべて
+  return D.rows.map(r => withPlace({ ...base, ...rowOf(r), ...(D.allDay ? { start: base.start, len: base.len } : {}) }));
 }
 function draftPlan() {
   const base = draftEvent();
@@ -1178,7 +1182,7 @@ function renderEditor(first) {
         `<span class="rst">${hc.length ? '✕ ' + esc(conflictWhat(hc)) : tOf(e).length || T.teachers === 'none' ? '✓' : ''}</span></button>` +
         (D.rows.length > 1 ? `<button class="rdel" data-e="rowDel" data-v="${i}" aria-label="この回を消す">✕</button>` : '') + `</div>`;
     }).join('')}</div>` +
-      (D.rows.length < MAX_ROWS ? `<div class="opts" style="margin-top:6px"><button class="opt" data-e="addRow" data-v="week">＋ 1週後</button><button class="opt" data-e="addRow" data-v="cont">＋ 同じ日に続けて</button></div>` : '') + `</div>`;
+      (D.rows.length < MAX_ROWS ? `<div class="opts" style="margin-top:6px"><button class="opt" data-e="addRow" data-v="week">＋ 1週後</button>${D.allDay ? '' : '<button class="opt" data-e="addRow" data-v="cont">＋ 同じ日に続けて</button>'}</div>` : '') + `</div>`;
   }
   h += `<div class="fld"><span class="lab">${weekly ? '始める日' : '日にち'}${rows && D.rows.length > 1 ? `（${D.cur + 1}回目）` : ''}　<b style="color:var(--ink);font-size:14px">${md(D.date)}${weekly ? `から 毎週${WD[dow(D.date)]}曜` : ''}</b></span>${(needForDraft(sundayOf(D.calM), addDays(sundayOf(D.calM), 41)), miniCal())}</div>`;
   if (T.allDay && !T.onlyAllDay) h += `<div class="fld"><label><input type="checkbox" data-f="allDay"${D.allDay ? ' checked' : ''}> 終日（9:00〜21:00）</label></div>`;
@@ -1199,11 +1203,12 @@ function renderEditor(first) {
       ${D.type === 'lesson' && quick.includes(D.len) ? '' : `<select class="inp" data-f="len">${lens.map(l => `<option value="${l}"${l === D.len ? ' selected' : ''}>${lenLabel(l)}</option>`).join('')}</select>`}</div></div>`;
   }
   if (T.rooms !== 'none') {
-    const multi = T.rooms !== 'one';
+    const multi = T.rooms !== 'one', allOn = isAll(D.rooms);
     h += `<div class="fld"><span class="lab">部屋${multi ? '（複数選べます）' : ''}</span><div class="opts">${ROOMS.map(r => {
-      const busy = !D.rooms.includes(r.id) && roomBusy(r.id);
-      return `<button class="opt${D.rooms.includes(r.id) ? ' on' : ''}${busy ? ' busy' : ''}" data-e="room" data-v="${r.id}">${r.name}</button>`;
-    }).join('')}${multi ? `<button class="opt${D.rooms.length === ROOMS.length ? ' on' : ''}" data-e="allRooms">全部屋</button>` : ''}` +
+      // 1部屋の種類で全部屋を選んでいるときは、部屋のボタンは光らせない（全部屋のボタンだけ）
+      const on = D.rooms.includes(r.id) && (multi || !allOn), busy = !on && roomBusy(r.id);
+      return `<button class="opt${on ? ' on' : ''}${busy ? ' busy' : ''}" data-e="room" data-v="${r.id}">${r.name}</button>`;
+    }).join('')}${multi || T.allRooms ? `<button class="opt${allOn ? ' on' : ''}${!allOn && !multi && allRoomsBusy() ? ' busy' : ''}" data-e="allRooms">全部屋</button>` : ''}` +
       `${T.outside ? `<button class="opt${D.rooms.length ? '' : ' on'}" data-e="room" data-v="">教室外</button>` : ''}</div></div>`;
     if (anyOutside()) h += `<div class="fld"><span class="lab">教室外の場所${D.rows && useRows() && D.rows.length > 1 ? '（教室外の回はすべてこの場所）' : ''}</span>` +
       placePicker('ほかの場所は書いてください（例：中央公民館）') + `</div>`;
@@ -1253,7 +1258,7 @@ function groupField() {
 function subRow(tid) {
   const p = D.subs[tid], span = endOf(D) - D.start;
   let h = `<div class="subrow"><b>${esc(tName(tid))}</b><button class="opt${p ? '' : ' on'}" data-e="subAll" data-v="${tid}">全部</button>` +
-    `<button class="opt${p ? ' on' : ''}" data-e="subPart" data-v="${tid}"${span <= SLOT ? ' disabled title="30分の予定は全部だけです"' : ''}>時間を指定</button>`;
+    `<button class="opt${p ? ' on' : ''}" data-e="subPart" data-v="${tid}"${D.allDay ? ' disabled title="終日の予定は全部だけです"' : span <= SLOT ? ' disabled title="30分の予定は全部だけです"' : ''}>時間を指定</button>`;
   if (p) {
     const a = D.start + p.off, b = a + p.len;
     h += `<select class="inp" data-f="subS" data-t="${tid}">${range(D.start, D.start + span - SLOT).map(m => `<option value="${m}"${m === a ? ' selected' : ''}>${hm(m)}</option>`).join('')}</select>〜` +
@@ -1265,6 +1270,9 @@ function teacherOpt(t, on, e) {
   const busy = !on && teacherBusy(t.id);
   return `<button class="opt tc${on ? ' on' : ''}${busy ? ' busy' : ''}" style="${tcStyle(t)}" data-e="${e}" data-v="${t.id}" title="${esc(t.full + '・' + t.kind)}">${esc(t.name)}</button>`;
 }
+const isAll = rs => !!rs && rs.length === ROOMS.length;
+// 全部屋を押さえるとき、どこかの部屋がふさがっているか
+const allRoomsBusy = () => ROOMS.some(r => roomBusy(r.id));
 function roomBusy(rid) {
   const e = draftEvent();
   return hard(conflictsOf({ ...e, rooms: [rid], teachers: [] }, D.editing ? new Set([D.editing]) : null)).length > 0;
@@ -1812,7 +1820,7 @@ document.addEventListener('change', ev => {
   if (t.closest('#sheet') && t.dataset.f && D) {
     const f = t.dataset.f;
     if (f === 'len' || f === 'count') { D[f] = +t.value; normalizeDraft(); }
-    else if (f === 'allDay' || f === 'applySeries') D[f] = t.checked;
+    else if (f === 'allDay' || f === 'applySeries') { D[f] = t.checked; normalizeDraft(); }
     else if (f === 'until') { if (t.value) { D.until = t.value; D.untilKind = 'custom'; } }
     // 伴奏の時間：始まりを変えたら終わりはそのまま（始まりより前なら30分後）、終わりを変えたら長さを変える
     else if (f === 'subS' || f === 'subE') {
@@ -1941,7 +1949,8 @@ function sheetAction(e, v, el) {
       if (TYPES[D.type].rooms === 'one') D.rooms = v ? [v] : [];
       else D.rooms = D.rooms.includes(v) ? D.rooms.filter(r => r !== v) : [...D.rooms, v].sort();
       break;
-    case 'allRooms': D.rooms = D.rooms.length === ROOMS.length ? [] : ROOMS.map(r => r.id); break;
+    // 1部屋の種類（グループ）では、全部屋はもう一度押しても外さない（ほかの部屋か教室外を押して変える）
+    case 'allRooms': D.rooms = isAll(D.rooms) && TYPES[D.type].rooms !== 'one' ? [] : ROOMS.map(r => r.id); break;
     case 'main': D.teachers = [v, ...D.teachers.slice(1).filter(t => t !== v)]; normalizeDraft(); break;
     case 'sub': { const subs = D.teachers.slice(1); D.teachers = [D.teachers[0], ...(subs.includes(v) ? subs.filter(t => t !== v) : [...subs, v])]; normalizeDraft(); break; }
     case 'subAll': { const o = { ...D.subs }; delete o[v]; D.subs = o; break; }
