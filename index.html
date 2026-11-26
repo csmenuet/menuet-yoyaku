@@ -1539,7 +1539,8 @@ async function openLog() {
 }
 
 /* ===== API・ログイン ===== */
-// ログインは Google の IDトークン（1時間有効）。APIを呼ぶたびに送り、Apps Script 側で本物か・許可された人かを確かめる
+// ログインは Google の IDトークン（1時間有効）。Apps Script 側で本物か確かめると通行証（30日有効）が返るので、以後はそれを送る。
+// どちらも token に { cred, exp, email } で持ち、期限が切れたら Google に取り直してもらう。許可された人かは毎回 Apps Script 側で確かめる
 const CFG = window.MENUET_CONFIG || {};
 const TOKEN_KEY = 'menuet-yoyaku-token';
 let ME = null, SV = null, ready = false, bootMsg = 'ログインしてください', bootFailed = false, token = null, tokenWaiters = [];
@@ -1578,7 +1579,7 @@ function getToken() {
   });
 }
 // 操作ごとの「処理中」の文。version（数分おきの確かめ）は裏で静かに行うので出さない
-const BUSY_LABEL = { init: 'ログインしています…', events: '予定を読み込んでいます…', student: '予定を読み込んでいます…', log: '読み込んでいます…',
+const BUSY_LABEL = { init: '先生と生徒の一覧を読み込んでいます…', events: '予定を読み込んでいます…', student: '予定を読み込んでいます…', log: '読み込んでいます…',
   add: '保存しています…', update: '保存しています…', makeupMove: '保存しています…', cancel: '保存しています…', uncancel: '保存しています…', noMakeup: '保存しています…', delete: '保存しています…' };
 async function api(action, params, label) {
   label = label || BUSY_LABEL[action];
@@ -1595,6 +1596,8 @@ async function callApi(action, params) {
     res = await fetch(CFG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...params, action, token: cred }) });
   } catch (e) { throw new Error('通信できませんでした。電波の状態を確かめて、もう一度試してください'); }
   const j = await res.json().catch(() => ({ ok: false, error: 'サーバーの返事を読めませんでした。少し待ってからもう一度試してください' }));
+  // IDトークンを送ったときは通行証（30日）が返るので、以後はそれを使う
+  if (j.ok && j.pass) { token = j.pass; try { localStorage.setItem(TOKEN_KEY, JSON.stringify(token)); } catch (e) { } }
   if (!j.ok) {
     const err = new Error(j.error); err.code = j.code; err.conflicts = j.conflicts;
     if (j.code === 'auth' || j.code === 'forbidden') {
