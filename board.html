@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMac
 .bbar .btitle{font-size:18px;white-space:nowrap;font-family:var(--brand-font);color:var(--brand-red)}
 .bbar .mleg span{font-size:13px;line-height:20px;padding:0 8px}
 /* 掲示はマウスを使わない（テンキーだけ）。マウスが付いていてもカーソルを出さない */
-body,.mhd,.mev{cursor:none}
+*{cursor:none!important}
 .bbar .bstat{font-size:12px;color:var(--bad);white-space:nowrap}
 .bmsg{margin:40px auto;max-width:640px;font-size:18px}
 /* 月を送ったときに、読み込み中であることを画面の真ん中に出す（キーが効いていないと思って連打しないように） */
@@ -27,16 +27,38 @@ body,.mhd,.mev{cursor:none}
   font-family:var(--brand-font);font-size:18px;color:var(--sub);white-space:nowrap;z-index:10}
 .bload .spin{width:20px;height:20px;border:3px solid var(--line);border-top-color:var(--brand-orange);border-radius:50%;animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.mwrap.dim{opacity:.45}
+.mwrap.dim,.gridwrap.dim,.band.dim{opacity:.45}
+.bbar .bkeys{font-size:12px;color:var(--sub);white-space:nowrap}
+.bbar .bkeys b{display:inline-block;min-width:1.6em;margin:0 2px 0 6px;padding:0 4px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);text-align:center;font-weight:700}
+/* 日・週：表は操作用の「日」「週」と同じ。行の高さと文字の大きさ（--bfs）は fit() で画面に合わせ、スクロールさせない */
+#main .gridwrap{overflow:hidden}
+.bv-day .band{flex-wrap:wrap;overflow:hidden;padding:4px 12px}
+.bv-day .band .chip,.bv-day .band.empty{font-size:calc(var(--bfs) * .8)}
+.bv-day .gh{font-size:var(--bfs)}
+.bv-day .tl{font-size:calc(var(--bfs) * .75)}
+.bv-day .ev{padding:1px 5px}
+.bv-day .ev-t{font-size:var(--bfs)}
+.bv-day .ev-s{font-size:calc(var(--bfs) * .85)}
+.bv-day .ev-m{font-size:calc(var(--bfs) * .7)}
+.bv-week .wall .gh{font-size:calc(var(--bfs) * .9)}
+.bv-week .wall .gh .hn{font-size:calc(var(--bfs) * .65)}
+.bv-week .gh2{font-size:calc(var(--bfs) * .7)}
+.bv-week .wall .tl{font-size:calc(var(--bfs) * .7)}
+.bv-week .wband .chip{font-size:calc(var(--bfs) * .65)}
+/* 週の枠は狭いので、名字3文字が入るよう余白と左の線を細くする */
+.bv-week .wev{line-height:1.2;padding:1px 2px;margin:0 1px;border-left-width:3px}
+.bv-week .wev .ev-t{font-size:var(--bfs)}
+.bv-week .wev .ev-s{font-size:calc(var(--bfs) * .8)}
 .bbar .bhint{font-size:14px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:1px 10px;white-space:nowrap}
 </style>
 </head>
 <body>
 <!--
   教室のディスプレイに常時出す掲示。見るだけのページで、ボタンやログインはない。
-  今月の全部屋を、1日を9〜15時と15〜21時の2列に折り返して、画面いっぱいに出す。
-  テンキー（またはキーボード）で月を送れる：←↑（4・8）で前の月、→↓（6・2）で次の月、Enter（5・0）で今月。
-  NumLock のオン・オフどちらでも動く。しばらく触らなければ今月に戻る。
+  ふだんは今月の全部屋を、1日を9〜15時と15〜21時の2列に折り返して、画面いっぱいに出す。
+  テンキー（またはキーボード）で切り替える：1 で今日の日、2 で今週の週、3 で今月の月（日・週は操作用の「日」「週」の全部屋と同じ表）。
+  4・6（←→）で前・次の日・週・月、Enter（5・0）で今月の月に戻る。NumLock のオン・オフどちらでも動く。しばらく触らなければ今月の月に戻る。
+  どの表示も、スクロールなしで画面に収まるよう、行の高さと文字の大きさを画面に合わせる。
   URL に #key=掲示の合言葉 を付けて開く（合言葉は予約スプレッドシートの設定シート）。予定は教室の時間は2分ごと、それ以外は30分ごとに取り直す。
   # のあとは GitHub Pages のサーバーに送られないので、合言葉がアクセスログに残らない。
   前の形（?key=）で開いたときも動くが、すぐに #key= の形に書き換える（あとの読み直しで合言葉を送らないように）。
@@ -53,53 +75,79 @@ const CFG = window.MENUET_CONFIG || {};
 const BKEY = new URLSearchParams(location.hash.slice(1)).get('key') || new URLSearchParams(location.search).get('key') || '';
 if (BKEY && location.search) history.replaceState(null, '', location.pathname + '#key=' + encodeURIComponent(BKEY));
 let shownWeeks = 5;
-// 今月からいくつ送っているか（0＝今月）と、最後にキーを押した時刻
-let offset = 0, lastKey = 0;
+// 出している表示（day＝日・week＝週・month＝月）と、今日・今週・今月からいくつ送っているか（0＝今）。最後にキーを押した時刻
+let mode = 'month', offset = 0, lastKey = 0;
 const IDLE_MS = 3 * 60 * 1000;   // これだけ触らなければ今月に戻す
-// 読み込んだ月（YYYY-MM-01）、最後に読めた時刻、通信できないときのお知らせ
+const MAX_OFF = { day: 366, week: 53, month: 12 };
+// 出している予定の表示（view() の形）、最後に読めた時刻、通信できないときのお知らせ
 let loaded = null, lastOk = null, problem = '';
-// 読んだ月の予定を覚えておき、前に見た月へはすぐに切り替える（そのあと新しい予定を読み直す）
-const cache = new Map();
-// 読み込み中の、まだ出していない月（あれば「読み込んでいます」を出す）。seq は最後に頼んだ読み込みの番号（古い返事は捨てる）
+// 読んだ期間の予定を覚えておき、前に見た期間へはすぐに切り替える（そのあと新しい予定を読み直す）。古いものから捨てる
+const cache = new Map(), CACHE_MAX = 30;
+// 読み込み中の、まだ出していない表示（あれば「読み込んでいます」を出す）。seq は最後に頼んだ読み込みの番号（古い返事は捨てる）
 let loading = null, seq = 0, keyTimer = 0;
-const shownMonth = () => { const f0 = pd(today().slice(0, 8) + '01'); return ds(new Date(f0.getFullYear(), f0.getMonth() + offset, 1)); };
+// 今の表示の、基準の日（日はその日・週は日曜・月は1日）と、読む期間（週は日曜〜土曜。月は前後の月の日も含めて週でそろえる）
+function view() {
+  const t = today();
+  let base, from, to;
+  if (mode === 'day') { base = from = to = addDays(t, offset); }
+  else if (mode === 'week') { base = from = addDays(sundayOf(t), 7 * offset); to = addDays(from, 6); }
+  else {
+    const f0 = pd(t.slice(0, 8) + '01'), f = new Date(f0.getFullYear(), f0.getMonth() + offset, 1);
+    base = ds(f); from = sundayOf(base); to = addDays(sundayOf(ds(new Date(f.getFullYear(), f.getMonth() + 1, 0))), 6);
+  }
+  return { mode, offset, base, from, to, id: `${mode}:${from}` };
+}
+// 年は今年でなければ付ける
+const yr = d => d.slice(0, 4) !== today().slice(0, 4) ? d.slice(0, 4) + '年' : '';
+const jday = d => { const x = pd(d); return `${x.getMonth() + 1}月${x.getDate()}日(${WD[x.getDay()]})`; };
+function label(v) {
+  if (v.mode === 'day') return yr(v.base) + jday(v.base);
+  if (v.mode === 'week') return yr(v.base) + md(v.base) + '〜' + md(v.to);
+  return yr(v.base) + (pd(v.base).getMonth() + 1) + '月';
+}
+const NOT_NOW = { day: '今日', week: '今週', month: '今月' };
 function render() {
   const main = $('#main');
-  const f0 = pd(today().slice(0, 8) + '01');
-  const loadMsg = m => { const lf = pd(m); return `<div class="bload"><span class="spin"></span>${lf.getFullYear() !== f0.getFullYear() ? lf.getFullYear() + '年' : ''}${lf.getMonth() + 1}月を読み込んでいます…</div>`; };
+  const loadMsg = v => `<div class="bload"><span class="spin"></span>${label(v)}${v.mode === 'week' ? 'の週' : ''}を読み込んでいます…</div>`;
   // 開いたばかりで、まだ何も読めていないとき
-  if (!loaded) { main.innerHTML = problem ? `<div class="bmsg">${esc(problem)}</div>` : loadMsg(loading || shownMonth()); return; }
-  const first = loaded, f = pd(first);
-  const last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
-  // 1日を含む週から、月末を含む週まで（前後の月の日は薄く出す）
-  const weeks = [];
-  for (let ws = sundayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
-  shownWeeks = weeks.length;
-  main.innerHTML = `<div class="mbar bbar"><b class="btitle">${f.getFullYear() !== f0.getFullYear() ? f.getFullYear() + '年' : ''}${f.getMonth() + 1}月のレッスン予定</b>` +
-    (offset ? `<span class="bhint">今月ではありません（Enterで今月に戻る）</span>` : '') +
-    (problem ? `<span class="bstat">${esc(problem)}${lastOk ? `（${lastOk.getHours()}:${pad(lastOk.getMinutes())}の予定を表示中）` : ''}</span>` : '') + `${legend()}</div>` +
-    monthGrid(weeks, d => d < first || d > last, true, '', 'board' + first, true);
+  if (!loaded) { main.className = ''; main.innerHTML = problem ? `<div class="bmsg">${esc(problem)}</div>` : loadMsg(loading || view()); return; }
+  const v = loaded;
+  main.className = 'bv-' + v.mode;
+  let body;
+  if (v.mode === 'day') body = band(v.base) + dayGrid(v.base, '', 'bday' + v.base);
+  else if (v.mode === 'week') body = weekAllGrid(v.base, [...Array(7).keys()].map(i => addDays(v.base, i)));
+  else {
+    const first = v.base, f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
+    // 1日を含む週から、月末を含む週まで（前後の月の日は薄く出す）
+    const weeks = [];
+    for (let ws = sundayOf(first); ws <= last; ws = addDays(ws, 7)) weeks.push(ws);
+    shownWeeks = weeks.length;
+    body = monthGrid(weeks, d => d < first || d > last, true, '', 'board' + first, true);
+  }
+  main.innerHTML = `<div class="mbar bbar"><b class="btitle">${label(v)}のレッスン予定</b>` +
+    (v.offset ? `<span class="bhint">${NOT_NOW[v.mode]}ではありません（Enterで今月に戻る）</span>` : '') +
+    (problem ? `<span class="bstat">${esc(problem)}${lastOk ? `（${lastOk.getHours()}:${pad(lastOk.getMinutes())}の予定を表示中）` : ''}</span>` : '') +
+    `<span class="bkeys"><b>1</b>日 <b>2</b>週 <b>3</b>月 <b>4</b><b>6</b>前・次 <b>Enter</b>今月</span>${legend()}</div>` + body;
   if (loading) {
-    main.querySelector('.mwrap')?.classList.add('dim');
+    main.querySelectorAll('.mwrap,.gridwrap,.band').forEach(x => x.classList.add('dim'));
     main.insertAdjacentHTML('beforeend', loadMsg(loading));
   }
   fit();
 }
-// 表示する月の予定を読む（日曜〜土曜の週でそろえて、前後の月の日も含める）
+// 表示する期間の予定を読む
 async function refresh() {
   if (!CFG.apiUrl) { problem = '設定（config.js）の apiUrl が空です'; return render(); }
   if (!BKEY) { problem = 'URL の最後に #key=掲示の合言葉 を付けて開いてください'; return render(); }
-  const first = shownMonth(), f = pd(first), last = ds(new Date(f.getFullYear(), f.getMonth() + 1, 0));
-  const from = sundayOf(first), to = addDays(sundayOf(last), 6);
+  const v = view();
   lastFetch = Date.now();
   const my = ++seq;
   try {
-    const res = await fetch(`${CFG.apiUrl}?key=${encodeURIComponent(BKEY)}&from=${from}&to=${to}`, { cache: 'no-store' });
+    const res = await fetch(`${CFG.apiUrl}?key=${encodeURIComponent(BKEY)}&from=${v.from}&to=${v.to}`, { cache: 'no-store' });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error);
-    cache.set(first, j);
+    remember(v, j);
     if (my !== seq) return;
-    show(first, j);
+    show(v, j);
     lastOk = new Date(); problem = '';
   } catch (e) {
     if (my !== seq) return;
@@ -109,19 +157,32 @@ async function refresh() {
   loading = null;
   render();
 }
-function show(first, j) { setMaster(j); S.events = j.events; reindex(); loaded = first; }
-// 月を送ったとき：前に読んだ月ならすぐ出し、まだなら「読み込んでいます」を出す。
-// 続けて押されたときは、止まってから0.4秒後に最後の月だけを読む
-function goMonth() {
-  const first = shownMonth(), c = cache.get(first);
-  seq++;   // 読み込み中の前の月の返事は使わない
-  if (c) { show(first, c); loading = null; } else loading = first === loaded ? null : first;
+function remember(v, j) {
+  const k = v.from + '|' + v.to;
+  cache.delete(k); cache.set(k, { from: v.from, to: v.to, j });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+}
+// 期間をすべて含む、覚えている予定（月を見たあとの日・週は、月の予定からすぐ出せる）。新しく読んだものから探す
+function cached(v) {
+  let hit = null;
+  for (const c of cache.values()) if (c.from <= v.from && v.to <= c.to) hit = c;
+  return hit && hit.j;
+}
+function show(v, j) { setMaster(j); S.events = j.events; reindex(); loaded = v; }
+// 表示を変えたとき：覚えている期間ならすぐ出し、まだなら「読み込んでいます」を出す。
+// 続けて押されたときは、止まってから0.4秒後に最後の表示の期間だけを読む
+function goView() {
+  const v = view(), c = cached(v);
+  seq++;   // 読み込み中の前の表示の返事は使わない
+  if (c) { show(v, c); loading = null; } else loading = loaded && v.id === loaded.id ? null : v;
   render();
   clearTimeout(keyTimer);
   keyTimer = setTimeout(refresh, 400);
 }
 // 行の高さと文字の大きさを、画面の縦横に合わせて決める（スクロールなしで収める）
 function fit() {
+  if (loaded && loaded.mode === 'day') return fitDay();
+  if (loaded && loaded.mode === 'week') return fitWeek();
   const w = $('.mwrap'), wk = w && w.querySelector('.mweek');
   if (!w || !wk) return;
   const NS = NSLOT / 2, perWeek = 14 + 3;
@@ -137,27 +198,77 @@ function fit() {
   const mg = Math.max(14, Math.ceil(Math.max(8, fs - 2) * 1.3 + 4)) + 'px';
   if (w.style.getPropertyValue('--mg') !== mg) { w.style.setProperty('--mg', mg); fit(); }
 }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, Math.floor(x)));
+// 日：12時間（30分×24行）が縦に収まる行の高さにし、30分の枠に2行（名前と先生）が入る文字の大きさにする。
+// 文字の大きさで上の帯の高さが変わるので、窓の高さから見当を付けて1回描き、測り直してもう1回決める
+function fitDay() {
+  const main = $('#main'), g = $('.gridwrap');
+  if (!g) return;
+  let fs = clamp(innerHeight / (NSLOT + 4) * .38, 10, 28);
+  for (let pass = 0; pass < 2; pass++) {
+    main.style.setProperty('--bfs', fs + 'px');
+    const headh = Math.round(fs * 1.8), rowh = Math.floor((g.clientHeight - headh - 2) / NSLOT);
+    g.style.setProperty('--headh', headh + 'px');
+    g.style.setProperty('--rowh', rowh + 'px');
+    g.style.setProperty('--timew', Math.round(fs * 3.2) + 'px');
+    const f2 = clamp(rowh * .38, 8, 28);
+    if (f2 >= fs) break;
+    fs = f2;
+  }
+}
+// 週：7日×部屋の列。名字3文字が列の幅に、名前と先生の2行が1時間（2行分）に収まる文字の大きさにする
+function fitWeek() {
+  const main = $('#main'), g = $('.gridwrap');
+  if (!g) return;
+  const cols = 7 * ROOMS.length;
+  let fs = clamp((g.clientWidth - 40) / cols / 3.5, 8, 26);
+  for (let pass = 0; pass < 3; pass++) {
+    main.style.setProperty('--bfs', fs + 'px');
+    const wh1 = Math.round(fs * 1.5), wh2 = Math.round(fs * 1.1), wtime = Math.round(fs * 1.6);
+    g.style.setProperty('--wh1', wh1 + 'px');
+    g.style.setProperty('--wh2', wh2 + 'px');
+    g.style.setProperty('--wtime', wtime + 'px');
+    g.style.setProperty('--wcol', '4px');
+    const bandH = Math.max(0, ...[...g.querySelectorAll('.wband')].map(x => x.offsetHeight));
+    const wrow = Math.max(6, Math.floor((g.clientHeight - wh1 - wh2 - bandH - 2) / NSLOT));
+    g.style.setProperty('--wrow', wrow + 'px');
+    g.style.setProperty('--rh', wrow + 'px');
+    const f2 = clamp(Math.min(wrow * .8, (g.clientWidth - wtime) / cols / 3.5), 7, 26);
+    if (f2 >= fs) break;
+    fs = f2;
+  }
+}
 window.addEventListener('resize', fit);
-// 毎分描き直す（日付が変われば今日の枠が動く）。ほかの月を出したまま放っておかれたら今月に戻す。月が変わったら読み直す
+// 毎分描き直す（日付が変われば今日の枠が動く）。今月の月の表示以外のまま放っておかれたら今月に戻す。日・週・月が変わったら読み直す
 setInterval(() => {
-  if (offset && Date.now() - lastKey > IDLE_MS) { offset = 0; return goMonth(); }
-  if (loaded && loaded !== shownMonth() && !loading) refresh(); else render();
+  if ((offset || mode !== 'month') && Date.now() - lastKey > IDLE_MS) { mode = 'month'; offset = 0; return goView(); }
+  if (loaded && loaded.id !== view().id && !loading) refresh(); else render();
 }, 60000);
 // 予定は教室の時間（8:00〜21:30）は2分ごと、それ以外と教室の休みの日は30分ごとに取り直す（だれも見ていない時間に呼ばないように）
 let lastFetch = 0;
 const openNow = () => { const n = new Date(), m = n.getHours() * 60 + n.getMinutes(); return m >= DAY_START - 60 && m < DAY_END + 30 && !closedName(today()); };
 setInterval(() => { if (Date.now() - lastFetch >= (openNow() ? 2 : 30) * 60 * 1000 - 5000) refresh(); }, 60000);
-// テンキー：NumLock がオフなら矢印・Enter、オンなら数字が届くので、両方を受ける
-const KEYS_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp', '4', '8', '-'], KEYS_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', '6', '2', '+'], KEYS_HOME = ['Enter', 'Home', '5', '0'];
+// テンキー：1＝今日の日、2＝今週の週、3＝今月の月、4・6（←→）＝前・次の日・週・月、Enter＝今月の月。
+// テンキーは NumLock のオン・オフで届く文字が変わる（オフだと 2 が ↓、4 が ← など）ので、数字は押したキーの位置（ev.code）で見る
+const KEYS_PREV = ['4', 'ArrowLeft', 'ArrowUp', 'PageUp', '-'], KEYS_NEXT = ['6', 'ArrowRight', 'ArrowDown', 'PageDown', '+'], KEYS_HOME = ['Enter', 'Home', '5', '0'];
+const KEYS_MODE = { 1: 'day', 2: 'week', 3: 'month' };
+function keyOf(ev) {
+  const c = ev.code || '';
+  if (/^(Numpad|Digit)\d$/.test(c)) return c.slice(-1);
+  if (c === 'NumpadEnter') return 'Enter';
+  return ev.key;
+}
 document.addEventListener('keydown', ev => {
-  if (KEYS_PREV.includes(ev.key)) offset--;
-  else if (KEYS_NEXT.includes(ev.key)) offset++;
-  else if (KEYS_HOME.includes(ev.key)) offset = 0;
+  const k = keyOf(ev);
+  if (KEYS_MODE[k]) { mode = KEYS_MODE[k]; offset = 0; }
+  else if (KEYS_PREV.includes(k)) offset--;
+  else if (KEYS_NEXT.includes(k)) offset++;
+  else if (KEYS_HOME.includes(k)) { mode = 'month'; offset = 0; }
   else return;
   ev.preventDefault();
-  offset = Math.max(-12, Math.min(12, offset));
+  offset = Math.max(-MAX_OFF[mode], Math.min(MAX_OFF[mode], offset));
   lastKey = Date.now();
-  goMonth();
+  goView();
 });
 // ページ自体の更新：10分ごとに、このページと共通部分のファイルが変わっていないか確かめ、変わっていたら読み直す
 const SELF = ['board.html', 'core.js', 'core.css', 'config.js'];

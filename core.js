@@ -311,3 +311,113 @@ function monthDay(d, R, out, fold, noLine, noNow) {
   return h + `</div>`;
 }
 
+/* ===== 日・週の全部屋（操作用の「日」「週」と掲示で共通） ===== */
+// 日：部屋ごとの列に、その日の予定を並べる。hl：空いている枠を色付けする先生
+function dayGrid(d, hl, key) {
+  const list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
+  const cols = ROOMS.length;
+  let h = `<div class="gridwrap" data-k="${key}"><div class="grid" style="grid-template-columns:var(--timew) repeat(${cols},minmax(var(--colmin),1fr));grid-template-rows:var(--headh) repeat(${NSLOT},var(--rowh))">`;
+  h += `<div class="gh corner"></div>`;
+  ROOMS.forEach((r, i) => h += `<div class="gh" style="grid-column:${i + 2}">${r.name}</div>`);
+  for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + 2}/span 2">${hm(DAY_START + s * SLOT)}</div>`;
+  for (let s = 0; s < NSLOT; s++) {
+    const st = DAY_START + s * SLOT;
+    for (let i = 0; i < cols; i++) {
+      let cls = 'cell' + (s % 2 ? ' half' : '');
+      if (hl && !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [ROOMS[i].id], teachers: [hl] })).length) cls += ' free';
+      h += `<div class="${cls}" data-cell="${d}|${st}|${ROOMS[i].id}" style="grid-column:${i + 2};grid-row:${s + 2}"></div>`;
+    }
+  }
+  for (const e of list) {
+    if (!e.rooms || !e.rooms.length) continue;
+    const idx = e.rooms.map(r => ROOMS.findIndex(x => x.id === r)).filter(i => i >= 0).sort((a, b) => a - b);
+    const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+    if (s1 <= s0 || !idx.length) continue;
+    const row = `grid-row:${(s0 - DAY_START) / SLOT + 2}/span ${(s1 - s0) / SLOT}`;
+    let a = idx[0];
+    for (let k = 1; k <= idx.length; k++) {
+      if (k === idx.length || idx[k] !== idx[k - 1] + 1) { h += evBlock(e, `grid-column:${a + 2}/${idx[k - 1] + 3};${row}`, hl); a = idx[k]; }
+    }
+  }
+  h += nowLine(d, '2/-1');
+  return h + '</div></div>';
+}
+function nowLine(d, col, row0 = 2) {
+  if (d !== today()) return '';
+  const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+  if (m < DAY_START || m >= DAY_END) return '';
+  const s = Math.floor((m - DAY_START) / SLOT), f = ((m - DAY_START) % SLOT) / SLOT;
+  return `<div class="now" style="grid-column:${col};grid-row:${s + row0};top:calc(var(--rh, var(--rowh)) * ${f.toFixed(3)})"></div>`;
+}
+// forTeacher：その先生の週を見るとき。2行目に部屋と、一緒に入る先生（伴奏・メイン）を出す
+function evBlock(e, style, hl, forTeacher) {
+  const cls = ['ev', 't-' + e.type];
+  if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
+  // 先生から見るとき（forTeacher）、伴奏の時間を決めていれば、その時間を出す
+  const tt = forTeacher ? subTime(e, forTeacher) : '';
+  const short = (tt ? e.subs[forTeacher].len : e.len) <= 30;
+  let sub = hideWho(e) ? '' : esc(evWho(e));
+  if (forTeacher) {
+    const ts = tOf(e), others = [...ts.filter(t => t !== forTeacher).map(t => tName(t) + (subTime(e, t) ? ' ' + subTime(e, t) : '')), ...(e.accomp || [])];
+    const role = TYPES[e.type].teachers === 'mainsub' ? (ts[0] === forTeacher ? (others.length ? '伴 ' + others.join('・') : '') : '伴奏（' + tName(ts[0]) + '）') : hideWho(e) ? '' : others.join('・');
+    sub = (e.rooms && e.rooms.length || isOutside(e) ? `<b class="room">${esc(whereText(e))}</b> ` : '') + esc(role);
+  }
+  return `<div class="${cls.join(' ')}" data-ev="${e.id}" style="${style};${teacherStyle(e)}">` +
+    `<div class="ev-t">${esc(evTitle(e))}</div><div class="ev-s">${sub}</div>` +
+    (short ? '' : `<div class="ev-m">${tt || evTime(e)}${e.memo ? ' ' + esc(e.memo) : ''}</div>`) + `</div>`;
+}
+function band(d) {
+  const items = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
+  const hol = holidayName(d);
+  if (!items.length && !hol) return `<div class="band empty">終日の予定・不在や教室外の先生はいません</div>`;
+  return `<div class="band">${hol ? `<span class="chip hol"><b>${esc(hol)}</b></span>` : ''}${items.map(e => { const p = bandParts(e); return `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}"><b>${esc(p.title)}</b> ${p.time}${p.who ? ' ' + esc(p.who) : ''}</button>`; }).join('')}</div>`;
+}
+// 週の見出しの日付。祝日なら名前を添える
+const dayHead = d => md(d) + (holidayName(d) ? `<span class="hn">${esc(holidayName(d))}</span>` : '');
+// 全部屋の週表示：7日×部屋の列を細く並べ、生徒は名字だけ出す
+const roomShort = r => (r.name.match(/\d+$/) || [r.name.slice(0, 2)])[0];
+function weekAllGrid(ws, days) {
+  const R = ROOMS.length, hl = '', ROW0 = 4;
+  // 列の幅を中身の長さで広げないよう、表の幅を画面幅（狭ければ最小幅）に固定する
+  let h = `<div class="gridwrap wall" data-k="weekall${ws}"><div class="grid" style="width:100%;min-width:calc(var(--wtime) + ${7 * R} * var(--wcol));grid-template-columns:var(--wtime) repeat(${7 * R},minmax(var(--wcol),1fr));grid-template-rows:var(--wh1) var(--wh2) auto repeat(${NSLOT},var(--wrow))">`;
+  h += `<div class="gh corner" style="grid-row:1/3"></div><div class="tl" style="grid-row:3;border-top:0"></div>`;
+  days.forEach((d, i) => {
+    const c0 = 2 + i * R;
+    h += `<div class="gh click dsep${d === today() ? ' today' : ''}${isRedDay(d) ? ' red' : ''}" style="grid-column:${c0}/span ${R}" data-act="gotoDay" data-d="${d}">${dayHead(d)}</div>`;
+    ROOMS.forEach((r, k) => h += `<div class="gh2${k ? '' : ' dsep'}" style="grid-column:${c0 + k}" title="${esc(r.name)}">${esc(roomShort(r))}</div>`);
+    const chips = (byDate.get(d) || []).filter(e => e.status !== 'cancel' && (e.allDay || !(e.rooms && e.rooms.length))).sort((a, b) => a.start - b.start);
+    h += `<div class="wband dsep" style="grid-column:${c0}/span ${R};grid-row:3">${chips.map(e => `<button class="chip t-${e.type}" data-ev="${e.id}" style="${teacherStyle(e)}">${esc(bandText(e))}</button>`).join('')}</div>`;
+  });
+  for (let s = 0; s < NSLOT; s += 2) h += `<div class="tl" style="grid-row:${s + ROW0}/span 2">${DAY_START / 60 + s / 2}</div>`;
+  days.forEach((d, i) => {
+    const c0 = 2 + i * R, list = (byDate.get(d) || []).filter(e => e.status !== 'cancel');
+    for (let s = 0; s < NSLOT; s++) {
+      const st = DAY_START + s * SLOT;
+      ROOMS.forEach((r, k) => {
+        let cls = 'cell' + (s % 2 ? ' half' : '') + (k ? '' : ' dsep');
+        if (hl && !hard(conflictsOf({ date: d, start: st, len: SLOT, rooms: [r.id], teachers: [hl] })).length) cls += ' free';
+        h += `<div class="${cls}" data-cell="${d}|${st}|${r.id}" style="grid-column:${c0 + k};grid-row:${s + ROW0}"></div>`;
+      });
+    }
+    for (const e of list) {
+      if (!e.rooms || !e.rooms.length) continue;
+      const idx = e.rooms.map(r => ROOMS.findIndex(x => x.id === r)).filter(x => x >= 0).sort((a, b) => a - b);
+      const s0 = Math.max(e.start, DAY_START), s1 = Math.min(endOf(e), DAY_END);
+      if (s1 <= s0 || !idx.length) continue;
+      const row = `grid-row:${(s0 - DAY_START) / SLOT + ROW0}/span ${(s1 - s0) / SLOT}`;
+      const tip = `${evTime(e)} ${roomsText(e.rooms)} ${evTitle(e)}${hideWho(e) ? '' : `（${evWho(e)}）`}`;
+      let a = idx[0];
+      for (let k = 1; k <= idx.length; k++) {
+        if (k === idx.length || idx[k] !== idx[k - 1] + 1) {
+          const cls = ['ev', 'wev', 't-' + e.type];
+          if (hl) cls.push(tOf(e).includes(hl) ? 'mine' : 'dim');
+          h += `<div class="${cls.join(' ')}" data-ev="${e.id}" title="${esc(tip)}" style="grid-column:${c0 + a}/${c0 + idx[k - 1] + 1};${row};${teacherStyle(e)}">` +
+            `<div class="ev-t">${esc(shortTitle(e))}</div>${endOf(e) - e.start >= 60 && tOf(e).length && !hideWho(e) ? `<div class="ev-s">${esc(whoAll(e) ? shortWho(e) : tName(tOf(e)[0]))}</div>` : ''}</div>`;
+          a = idx[k];
+        }
+      }
+    }
+    if (d === today()) h += nowLine(d, `${c0}/span ${R}`, ROW0);
+  });
+  return h + '</div></div>';
+}
