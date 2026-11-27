@@ -338,6 +338,8 @@ a.btn{color:inherit;text-decoration:none}
 const CLASSROOM = 'ROOM';
 const isTeacherLogin = () => !!UI.login && UI.login !== CLASSROOM;
 const loginName = () => ME ? ME.name : '';
+// スタッフ（教室を手伝ってくれる生徒など）は見るだけ。予約を入れる・変えるボタンを出さない（サーバーでも断る）
+const canEdit = () => !(ME && ME.readOnly);
 const KANA_ROWS = [
   ['ア', 'アイウエオヴ'], ['カ', 'カキクケコガギグゲゴ'], ['サ', 'サシスセソザジズゼゾ'], ['タ', 'タチツテトダヂヅデド'],
   ['ナ', 'ナニヌネノ'], ['ハ', 'ハヒフヘホバビブベボパピプペポ'], ['マ', 'マミムメモ'], ['ヤ', 'ヤユヨ'], ['ラ', 'ラリルレロ'], ['ワ', 'ワヲン'],
@@ -725,6 +727,7 @@ function studentMatches(q, krow, mineOnly) {
 }
 // 今日入会した生徒が見つからないとき：名簿の新規登録フォームで登録してから、生徒の一覧を読み直す
 function newStudentNote(act) {
+  if (!canEdit()) return `<div style="margin-top:8px"><button class="btn" data-${act}="reload">生徒の一覧を読み直す</button></div>`;
   return `<div class="csub" style="margin-top:8px">入会前の人（体験レッスン）は、予定の種類で「体験」を選んで入れてください。` +
     `<div style="margin-top:6px"><button class="btn" data-${act}="trial">体験として入れる</button></div></div>` +
     `<div class="csub" style="margin-top:8px">新しく入会した生徒は、${REG_URL ? `<a href="${esc(REG_URL)}" target="_blank" rel="noopener">名簿の新規登録フォーム</a>` : '名簿の新規登録フォーム'}で登録し、返信のメールが届いてから読み直してください。` +
@@ -735,7 +738,7 @@ function studentPicker(q, krow, mineOnly, act) {
   let h = `<div class="krow">${isTeacherLogin() ? `<button class="${mineOnly ? 'on' : ''}" data-${act}="mine" style="padding:5px 10px">自分の生徒</button>` : ''}` +
     KANA_ROWS.map(k => `<button class="${krow === k[0] ? 'on' : ''}" data-${act}="k${k[0]}">${k[0]}</button>`).join('') + `</div>`;
   if (!list.length) return h + `<div class="empty-note">見つかりません${mineOnly ? '（「自分の生徒」を外すと全員から探せます）' : ''}</div>` + newStudentNote(act);
-  h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}"${act === 'sp' ? ` title="${QUICK_TIP}"` : ''}>${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
+  h += `<div class="slist">${list.map(s => `<button class="sbtn" data-${act}="s${s.id}"${act === 'sp' && canEdit() ? ` title="${QUICK_TIP}"` : ''}>${esc(s.name)}<small>${esc(s.kana)}${mine.has(s.id) ? ' <span class="me">自分</span>' : ''}</small></button>`).join('')}</div>`;
   if (more) h += `<div class="csub" style="margin-top:6px">ほか${more}人。名前か行で絞ってください</div>`;
   return h;
 }
@@ -795,7 +798,7 @@ function renderStudent() {
     const all = S.events.filter(e => g ? e.type === 'group' && e.groupId === g.id : e.studentId === s.id).sort((a, b) => a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1);
     const pend = all.filter(e => e.status === 'cancel' && e.makeup === 'pending');
     const mode = UI.sMode, seg = (v, l) => `<button class="opt${mode === v ? ' on' : ''}" data-act="sMode" data-v="${v}">${l}</button>`;
-    h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 一覧</button><span class="grow"></span><button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button></div>
+    h += `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="sback">‹ 一覧</button><span class="grow"></span>${canEdit() ? `<button class="btn pri" data-act="newFor" data-id="${s.id}">＋ 予約を入れる</button>` : ''}</div>
       <div class="ctitle" style="font-size:22px">${esc(s.name)}</div><div class="csub">${g ? `グループ${g.teachers.length ? '・' + g.teachers.map(t => esc(tFull(t)) + '先生').join('・') : ''}${g.active ? '' : '・終了したグループ'}` : esc(s.kana)}・${s.id}</div>
       <div class="row" style="margin-top:10px"><div class="opts">${seg('future', 'これから')}${seg('month', '月ごと')}${seg('past', 'これまで')}</div>` +
       `<span class="grow"></span>${mode === 'future' ? `<button class="btn" data-act="sPrint" data-v="list" title="日にちごとの表（28回まで）">印刷：一覧</button><button class="btn" data-act="sPrint" data-v="month" title="月ごとに日にちを並べる（1年分など）">印刷：月ごと</button>` : ''}</div>`;
@@ -828,11 +831,11 @@ function renderStudent() {
   // 入会前の人（体験）は生徒の一覧にいないので、ここから体験の予約を入れられるようにする。
   // 入会したその場で登録できるよう、名簿の新規登録フォームもいつでも開けるようにしておく（見つからないときの案内とは別）
   const lab = (...ps) => `<i>${ps.map(x => `<span>${x}</span>`).join('')}</i>`;
-  h += `<div class="addrow"><span class="grow"></span><button class="btn" data-act="newTrial">${lab('＋ 体験を', '入れる')}</button><button class="btn" data-act="newOther">${lab('＋ ほかの', '予定を', '入れる')}</button>` +
+  if (canEdit()) h += `<div class="addrow"><span class="grow"></span><button class="btn" data-act="newTrial">${lab('＋ 体験を', '入れる')}</button><button class="btn" data-act="newOther">${lab('＋ ほかの', '予定を', '入れる')}</button>` +
     (REG_URL ? `<a class="btn" href="${esc(REG_URL)}" target="_blank" rel="noopener">${lab('＋ 新しい', '生徒を', '登録')}</a>` : '') + `</div>`;
   h += groupList();
   h += `<input class="search" id="sq" type="search" placeholder="名前・ふりがなで探す（例：さとう）" value="${esc(UI.sq)}" autocomplete="off">`;
-  h += `<div class="csub" style="margin:4px 0 8px">押すと予定の一覧、長押し（パソコンは右クリック）ですぐ予約を入れられます</div>`;
+  h += `<div class="csub" style="margin:4px 0 8px">${canEdit() ? '押すと予定の一覧、長押し（パソコンは右クリック）ですぐ予約を入れられます' : '押すと予定の一覧が開きます'}</div>`;
   h += `<div id="sres">${studentPicker(UI.sq, UI.krow, UI.mineOnly && isTeacherLogin(), 'sp')}</div>`;
   return h + '</div>';
 }
@@ -844,9 +847,9 @@ function activeGroups() {
 function groupList() {
   const gs = activeGroups();
   if (!gs.length) return '';
-  return `<div class="sec" style="margin-top:0">グループ</div><div class="slist" style="margin-bottom:12px">${gs.map(g => `<button class="sbtn" data-sp="g${g.id}" title="${QUICK_TIP}">${esc(g.name)}` +
+  return `<div class="sec" style="margin-top:0">グループ</div><div class="slist" style="margin-bottom:12px">${gs.map(g => `<button class="sbtn" data-sp="g${g.id}"${canEdit() ? ` title="${QUICK_TIP}"` : ''}>${esc(g.name)}` +
     `${isTeacherLogin() && g.teachers.includes(UI.login) ? ' <span class="me">自分</span>' : ''}</button>`).join('')}` +
-    `<button class="sbtn" data-act="newFreeGroup" title="グループシートにないグループの予約を、名前を書いて入れる">＋ その他のグループ</button></div>` +
+    (canEdit() ? `<button class="sbtn" data-act="newFreeGroup" title="グループシートにないグループの予約を、名前を書いて入れる">＋ その他のグループ</button>` : '') + `</div>` +
     `<div class="sec">生徒</div>`;
 }
 function bindStudentSearch() {
@@ -1405,14 +1408,16 @@ function openDetail(id) {
       ${e.seriesId ? `<dt>定期</dt><dd>定期の予定（同じ定期 ${S.events.filter(x => x.seriesId === e.seriesId).length}件）</dd>` : ''}
       <dt>更新</dt><dd class="csub">${esc(e.updatedBy || '')} ${e.updatedAt ? new Date(e.updatedAt).toLocaleString('ja-JP') : ''}</dd>
     </dl><div class="acts">`;
-  if (e.status !== 'cancel') {
-    h += `<button class="btn pri" data-e="edit" data-v="${e.id}">変更する</button>`;
-    if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn" data-e="nextOf" data-v="${e.id}">次回を入れる</button>`;
-    if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn danger" data-e="cancel" data-v="${e.id}">お休み・キャンセル</button>`;
-    else h += `<button class="btn danger" data-e="del" data-v="${e.id}">削除</button>`;
-  } else {
-    if (e.makeup === 'pending') h += `<button class="btn pri" data-e="mkup" data-v="${e.id}">振替を入れる</button><button class="btn" data-e="noMk" data-v="${e.id}">振替なしにする</button>`;
-    h += `<button class="btn" data-e="uncancel" data-v="${e.id}">キャンセルを取り消す</button>`;
+  if (canEdit()) {
+    if (e.status !== 'cancel') {
+      h += `<button class="btn pri" data-e="edit" data-v="${e.id}">変更する</button>`;
+      if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn" data-e="nextOf" data-v="${e.id}">次回を入れる</button>`;
+      if (e.type === 'lesson' || e.type === 'group') h += `<button class="btn danger" data-e="cancel" data-v="${e.id}">お休み・キャンセル</button>`;
+      else h += `<button class="btn danger" data-e="del" data-v="${e.id}">削除</button>`;
+    } else {
+      if (e.makeup === 'pending') h += `<button class="btn pri" data-e="mkup" data-v="${e.id}">振替を入れる</button><button class="btn" data-e="noMk" data-v="${e.id}">振替なしにする</button>`;
+      h += `<button class="btn" data-e="uncancel" data-v="${e.id}">キャンセルを取り消す</button>`;
+    }
   }
   if (e.studentId) h += `<button class="btn" data-e="toStudent" data-v="${e.studentId}">この生徒の予約一覧</button>`;
   if (e.type === 'group' && GMAP.has(e.groupId)) h += `<button class="btn" data-e="toStudent" data-v="${e.groupId}">このグループの予約一覧</button>`;
@@ -1684,6 +1689,7 @@ function needForDraft(f, t) {
 }
 // 予定を書き換える操作をAPIに送り、返ってきた予定を画面に反映する。then：うまくいったあとに続けること
 async function mutate(action, params, okMsg, then) {
+  if (!canEdit()) return toastErr('スタッフのログインでは予定を見るだけで、予約の追加や変更はできません');
   const box = $('#cbox'), btn = $('#saveBtn');
   if (D) D.saving = true;
   if (btn) { btn.disabled = true; btn.textContent = '保存しています…'; }
@@ -1725,6 +1731,7 @@ function setView(v) { UI.view = v; saveUI(); render(); }
 // Android は長押しで contextmenu も来るので、先に来たほうだけで開く（lpFired）。開いたあと指を離したときの click は捨てる
 // （指の下に出た予約の入力の背景を押したことになって、閉じてしまわないように）
 function quickNew(id) {
+  if (!canEdit()) return;
   if (GMAP.has(id)) { openEditor({ type: 'group', groupId: id, date: today(), types: 'fixed', lockSubject: true }); suggestForGroup(id); }
   else { openEditor({ studentId: id, date: today(), types: 'subj', lockSubject: true }); suggestFromHistory(id); }
   renderEditor();
@@ -1767,11 +1774,13 @@ document.addEventListener('click', ev => {
   const evEl = t.closest('[data-ev]');
   if (evEl) return openDetail(evEl.dataset.ev);
   const cell = t.closest('[data-cell]');
+  if (cell && !canEdit()) return;
   if (cell) {
     const [d, st, room] = cell.dataset.cell.split('|');
     return openEditor({ date: d, start: +st, rooms: [room], roomFixed: true, teachers: UI.hl ? [UI.hl] : isTeacherLogin() ? [UI.login] : [] });
   }
   const wc = t.closest('[data-wcell]');
+  if (wc && !canEdit()) return;
   if (wc) {
     const [d, st] = wc.dataset.wcell.split('|'), f = UI.wf;
     return openEditor(f.startsWith('R') ? { date: d, start: +st, rooms: [f] } : f === 'ALL' ? { date: d, start: +st } : { date: d, start: +st, teachers: [f], rooms: [freeRoom(d, +st, f) || 'R1'] });
@@ -1780,6 +1789,7 @@ document.addEventListener('click', ev => {
   if (!a) return;
   const act = a.dataset.act;
   if (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type === 'date')) return;
+  if (!canEdit() && ['new', 'next', 'makeup', 'newFor', 'newTrial', 'newFreeGroup', 'newOther'].includes(act)) return;
   switch (act) {
     case 'login': return ready ? openMenu() : openLogin();
     case 'retry': loadErr = 0; break;
@@ -1873,6 +1883,7 @@ document.addEventListener('input', ev => {
   if (f === 'ovPlaceText') D.ov[t.dataset.b] = { ...D.ov[t.dataset.b], place: t.value.trim() };
 });
 function pickerAction(v, st, redraw, isView) {
+  if (v === 'trial' && !canEdit()) return;
   if (v === 'trial') return isView ? openEditor({ type: 'trial', date: today(), types: 'fixed' }) : sheetAction('type', 'trial');
   if (v === 'reload') return reloadMaster().then(ok => { if (ok) { toastMsg('生徒の一覧を読み直しました'); redraw(); } });
   if (v === 'mine') { st.mineOnly = !st.mineOnly; }
